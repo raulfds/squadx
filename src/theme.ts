@@ -18,21 +18,21 @@ const palette = {
 
 export const theme = {
     colors: {
-        background: palette.background,
-        surface: palette.surface,
-        primary: palette.primary,
-        secondary: palette.secondary,
-        text: palette.text,
-        textSecondary: palette.textSecondary,
-        border: palette.border,
-        error: palette.error,
-        success: palette.success,
-        warning: palette.warning,
+        primary: '#FF0054', // Hot Pink from Logo Glasses/Text
+        secondary: '#FFD1DC', // Light Pink for accents
+        background: '#FFF8F4', // Light Cream background (Seashell/Linen tone)
+        surface: '#FFFFFF', // White cards
+        text: '#2D1B22', // Dark brownish/black text for softness
+        textSecondary: '#8A7A80',
+        border: '#EAD1DC',
+        success: '#00C851',
+        error: '#ff4444',
+        warning: '#ffbb33',
 
         // Navigation Defaults
-        tint: palette.primary,
-        tabIconDefault: palette.textSecondary,
-        tabIconSelected: palette.primary,
+        tint: '#FF0054', // Using primary for tint
+        tabIconDefault: '#8A7A80', // Using textSecondary for default tab icon
+        tabIconSelected: '#FF0054', // Using primary for selected tab icon
     },
     spacing: {
         xs: 4,

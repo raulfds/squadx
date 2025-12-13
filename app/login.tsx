@@ -1,8 +1,9 @@
 import { makeRedirectUri } from 'expo-auth-session';
 import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SocialButton } from '../src/components/SocialButton';
 import { supabase } from '../src/lib/supabase';
 import { theme } from '../src/theme';
@@ -11,6 +12,33 @@ WebBrowser.maybeCompleteAuthSession(); // Required for web browser redirect
 
 export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isSignUp, setIsSignUp] = useState(false);
+
+    const handleEmailAuth = async () => {
+        setLoading(true);
+        try {
+            if (isSignUp) {
+                const { error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+                Alert.alert('Verifique seu e-mail', 'Enviamos um link de confirmação para o seu e-mail.');
+            } else {
+                const { error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (error) throw error;
+            }
+        } catch (error: any) {
+            Alert.alert('Erro', error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleLogin = async (provider: 'google' | 'discord' | 'twitch') => {
         setLoading(true);
@@ -63,11 +91,70 @@ export default function LoginScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.logoContainer}>
-                {/* Placeholder for Logo */}
-                <View style={styles.logoBox}>
-                    <Text style={styles.logoText}>SQUADX</Text>
-                </View>
-                <Text style={styles.subtitle}>Encontre seu duo perfeito.</Text>
+                <Image
+                    source={require('../assets/images/squadx-logo.png')}
+                    style={styles.logo}
+                    contentFit="contain"
+                />
+            </View>
+
+            <View style={styles.tabContainer}>
+                <TouchableOpacity
+                    style={[styles.tab, !isSignUp && styles.activeTab]}
+                    onPress={() => setIsSignUp(false)}
+                >
+                    <Text style={[styles.tabText, !isSignUp && styles.activeTabText]}>Entrar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tab, isSignUp && styles.activeTab]}
+                    onPress={() => setIsSignUp(true)}
+                >
+                    <Text style={[styles.tabText, isSignUp && styles.activeTabText]}>Cadastrar</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.formContainer}>
+                <Text style={styles.formTitle}>
+                    {isSignUp ? 'Crie sua conta para começar' : 'Bem-vindo de volta!'}
+                </Text>
+
+                <TextInput
+                    style={styles.input}
+                    placeholder="E-mail"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Senha"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                />
+
+                <TouchableOpacity
+                    style={styles.authButton}
+                    onPress={handleEmailAuth}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="#FFF" />
+                    ) : (
+                        <Text style={styles.authButtonText}>
+                            {isSignUp ? 'Continuar para o Cadastro' : 'Entrar'}
+                        </Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OU</Text>
+                <View style={styles.dividerLine} />
             </View>
 
             <View style={styles.buttonsContainer}>
@@ -88,33 +175,85 @@ const styles = StyleSheet.create({
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: theme.spacing.xl * 2,
+        marginBottom: theme.spacing.lg,
     },
-    logoBox: {
-        width: 120,
-        height: 120,
-        backgroundColor: theme.colors.primary,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
+    logo: {
+        width: 250,
+        height: 250,
         marginBottom: theme.spacing.md,
-        shadowColor: theme.colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-        elevation: 10,
-    },
-    logoText: {
-        fontSize: 24,
-        fontWeight: '900',
-        color: '#FFF',
-    },
-    subtitle: {
-        color: theme.colors.textSecondary,
-        fontSize: 18,
-        textAlign: 'center',
     },
     buttonsContainer: {
         width: '100%',
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        marginBottom: theme.spacing.lg,
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        padding: 4,
+    },
+    tab: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderRadius: 10,
+    },
+    activeTab: {
+        backgroundColor: theme.colors.primary,
+    },
+    tabText: {
+        color: theme.colors.textSecondary,
+        fontWeight: '600',
+        fontSize: 16,
+    },
+    activeTabText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+    },
+    formContainer: {
+        width: '100%',
+        marginBottom: theme.spacing.xl,
+    },
+    formTitle: {
+        color: theme.colors.text,
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: theme.spacing.md,
+        textAlign: 'center',
+    },
+    input: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        padding: theme.spacing.md,
+        color: theme.colors.text,
+        marginBottom: theme.spacing.md,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    authButton: {
+        backgroundColor: theme.colors.primary,
+        padding: theme.spacing.md,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: theme.spacing.sm,
+    },
+    authButtonText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    dividerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: theme.colors.border,
+    },
+    dividerText: {
+        color: theme.colors.textSecondary,
+        paddingHorizontal: theme.spacing.md,
     },
 });

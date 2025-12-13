@@ -3,20 +3,42 @@ import * as SecureStore from 'expo-secure-store'
 import { AppState } from 'react-native'
 import 'react-native-url-polyfill/auto'
 
+import { Platform } from 'react-native'
+
 const ExpoSecureStoreAdapter = {
     getItem: (key: string) => {
+        if (Platform.OS === 'web') {
+            if (typeof localStorage === 'undefined') return Promise.resolve(null)
+            return Promise.resolve(localStorage.getItem(key))
+        }
         return SecureStore.getItemAsync(key)
     },
     setItem: (key: string, value: string) => {
+        if (Platform.OS === 'web') {
+            if (typeof localStorage === 'undefined') return
+            localStorage.setItem(key, value)
+            return
+        }
         SecureStore.setItemAsync(key, value)
     },
     removeItem: (key: string) => {
+        if (Platform.OS === 'web') {
+            if (typeof localStorage === 'undefined') return
+            localStorage.removeItem(key)
+            return
+        }
         SecureStore.deleteItemAsync(key)
     },
 }
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('[Supabase] Missing environment variables!', { supabaseUrl, supabaseAnonKey })
+} else {
+    console.log('[Supabase] Initializing client with URL:', supabaseUrl)
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {

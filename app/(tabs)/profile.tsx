@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../src/lib/supabase';
 import { theme } from '../../src/theme';
+
+const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
     const [profile, setProfile] = useState<any>(null);
@@ -27,7 +29,11 @@ export default function ProfileScreen() {
                 .eq('id', session.user.id)
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                // If profile not found, maybe redirect to onboarding?
+                // For now just allow empty
+                console.log('Profile fetch error or empty:', error.message);
+            }
             setProfile(profileData);
 
             // Fetch Ratings
@@ -47,7 +53,6 @@ export default function ProfileScreen() {
 
         } catch (error) {
             console.error(error);
-            Alert.alert('Erro', 'Não foi possível carregar seu perfil.');
         }
     };
 
@@ -80,6 +85,33 @@ export default function ProfileScreen() {
         );
     }
 
+    // Render Photos Carousel
+    const renderPhotos = () => {
+        const photos = profile?.photos || [];
+        if (photos.length === 0 && profile?.avatar_url) {
+            photos.push(profile.avatar_url);
+        }
+
+        if (photos.length === 0) return (
+            <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={60} color={theme.colors.textSecondary} />
+            </View>
+        );
+
+        return (
+            <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carousel}>
+                {photos.map((photo: string, index: number) => (
+                    <Image
+                        key={index}
+                        source={{ uri: photo }}
+                        style={styles.carouselImage}
+                        contentFit="cover"
+                    />
+                ))}
+            </ScrollView>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -89,73 +121,110 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </View>
 
-            <FlatList
+            <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                ListHeaderComponent={
-                    <>
-                        <View style={styles.profileHeader}>
-                            <Image
-                                source={{ uri: profile?.avatar_url || 'https://via.placeholder.com/150' }}
-                                style={styles.avatar}
-                            />
-                            <Text style={styles.username}>{profile?.username}</Text>
-                            <Text style={styles.bio}>{profile?.bio || 'Sem bio...'}</Text>
-                            {profile?.city && profile?.state && (
-                                <Text style={styles.location}>{profile.city} - {profile.state}</Text>
-                            )}
-                        </View>
+            >
+                {/* Photos */}
+                <View style={styles.photosSection}>
+                    {renderPhotos()}
+                    {!profile?.photos?.length && !profile?.avatar_url && (
+                        <Text style={styles.noPhotosText}>Sem fotos</Text>
+                    )}
+                </View>
 
-                        {ratings && (
-                            <View style={styles.statsContainer}>
-                                <Text style={styles.sectionTitle}>Médias de Avaliação</Text>
-                                <View style={styles.statsRow}>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.statLabel}>Respeito</Text>
-                                        <Text style={styles.statValue}>{ratings.avg_respect || '-'}</Text>
+                {/* Identity */}
+                <View style={styles.infoSection}>
+                    <View style={styles.nameRow}>
+                        <Text style={styles.username}>{profile?.username || 'Novo Usuário'}</Text>
+                        {profile?.gender && <View style={styles.tag}><Text style={styles.tagText}>{profile.gender}</Text></View>}
+                    </View>
+                    <Text style={styles.fullName}>{profile?.full_name}</Text>
+
+                    {profile?.city && profile?.state && (
+                        <View style={styles.locationRow}>
+                            <Ionicons name="location-sharp" size={16} color={theme.colors.textSecondary} />
+                            <Text style={styles.location}>{profile.city} - {profile.state}</Text>
+                        </View>
+                    )}
+
+                    {profile?.birth_date && (
+                        <Text style={styles.detailText}>🎂 {profile.birth_date.split('-').reverse().join('/')}</Text>
+                    )}
+
+                    <Text style={styles.bio}>{profile?.bio || 'Escreva algo sobre você...'}</Text>
+                </View>
+
+                {/* Genres & Availability */}
+                {(profile?.game_genres?.length > 0 || profile?.availability?.times?.length > 0) && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Perfil Gamer</Text>
+
+                        {profile?.game_genres?.length > 0 && (
+                            <View style={styles.chipRow}>
+                                {profile.game_genres.map((g: string) => (
+                                    <View key={g} style={styles.chip}>
+                                        <Text style={styles.chipText}>{g}</Text>
                                     </View>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.statLabel}>Humor</Text>
-                                        <Text style={styles.statValue}>{ratings.avg_humor || '-'}</Text>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.statLabel}>Comunic.</Text>
-                                        <Text style={styles.statValue}>{ratings.avg_communication || '-'}</Text>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.statLabel}>Colab.</Text>
-                                        <Text style={styles.statValue}>{ratings.avg_collaboration || '-'}</Text>
-                                    </View>
-                                </View>
+                                ))}
                             </View>
                         )}
 
-                        <View style={styles.gamesSection}>
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>Meus Jogos</Text>
+                        {profile?.availability?.times?.length > 0 && (
+                            <View style={styles.availabilityBox}>
+                                <Text style={styles.subTitle}>Disponibilidade:</Text>
+                                <Text style={styles.bodyText}>{profile.availability.times.join(', ')}</Text>
                             </View>
-                            {games.length === 0 ? (
-                                <Text style={styles.emptyText}>Nenhum jogo favorito adicionado.</Text>
-                            ) : (
-                                <View style={styles.gamesGrid}>
-                                    {games.map(game => (
-                                        <View key={game.id} style={styles.gameCard}>
-                                            <Image
-                                                source={{ uri: game.game_cover_url || 'https://via.placeholder.com/80' }}
-                                                style={styles.gameCover}
-                                                contentFit="cover"
-                                            />
-                                            <Text style={styles.gameName} numberOfLines={1}>{game.game_name}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
+                        )}
+                    </View>
+                )}
+
+                {/* Socials / Platforms */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Plataformas</Text>
+                    <View style={styles.platformsContainer}>
+                        {profile?.discord_handle ? <Text style={styles.platformText}><Ionicons name="logo-discord" size={16} color="#5865F2" /> {profile.discord_handle}</Text> : null}
+                        {profile?.psn_handle ? <Text style={styles.platformText}><Ionicons name="logo-playstation" size={16} color="#003087" /> {profile.psn_handle}</Text> : null}
+                        {profile?.xbox_handle ? <Text style={styles.platformText}><Ionicons name="logo-xbox" size={16} color="#107C10" /> {profile.xbox_handle}</Text> : null}
+                        {profile?.steam_handle ? <Text style={styles.platformText}><Ionicons name="logo-steam" size={16} color="#1b2838" /> {profile.steam_handle}</Text> : null}
+
+                        {!profile?.discord_handle && !profile?.psn_handle && !profile?.xbox_handle && !profile?.steam_handle && (
+                            <Text style={styles.emptyText}>Nenhuma conta vinculada.</Text>
+                        )}
+                    </View>
+                </View>
+
+                {/* Ratings */}
+                {ratings && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Reputação</Text>
+                        <View style={styles.statsRow}>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Respeito</Text>
+                                <Text style={styles.statValue}>{ratings.avg_respect || '-'}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Humor</Text>
+                                <Text style={styles.statValue}>{ratings.avg_humor || '-'}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Comunic.</Text>
+                                <Text style={styles.statValue}>{ratings.avg_communication || '-'}</Text>
+                            </View>
+                            <View style={styles.statItem}>
+                                <Text style={styles.statLabel}>Colab.</Text>
+                                <Text style={styles.statValue}>{ratings.avg_collaboration || '-'}</Text>
+                            </View>
                         </View>
-                    </>
-                }
-                data={[]}
-                renderItem={null}
-            />
+                    </View>
+                )}
+
+                {/* Edit Button Placeholder */}
+                <TouchableOpacity style={styles.editButton} onPress={() => router.push('/onboarding/step1')}>
+                    <Text style={styles.editButtonText}>Editar Perfil</Text>
+                </TouchableOpacity>
+
+            </ScrollView>
         </View>
     );
 }
@@ -188,48 +257,139 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingBottom: 40,
     },
-    profileHeader: {
-        alignItems: 'center',
-        padding: theme.spacing.xl,
-        backgroundColor: theme.colors.surface,
+    photosSection: {
+        height: 300,
+        backgroundColor: '#000',
         marginBottom: theme.spacing.md,
     },
-    avatar: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        marginBottom: theme.spacing.md,
-        borderWidth: 3,
-        borderColor: theme.colors.primary,
+    carousel: {
+        flex: 1,
+    },
+    carouselImage: {
+        width: width,
+        height: 300,
+    },
+    avatarPlaceholder: {
+        width: width,
+        height: 300,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+    },
+    noPhotosText: {
+        position: 'absolute',
+        width: '100%',
+        textAlign: 'center',
+        top: 140,
+        color: theme.colors.textSecondary,
+    },
+    infoSection: {
+        padding: theme.spacing.lg,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 4,
     },
     username: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 'bold',
         color: theme.colors.text,
+    },
+    fullName: {
+        fontSize: 16,
+        color: theme.colors.textSecondary,
+        marginBottom: 8,
+    },
+    tag: {
+        backgroundColor: theme.colors.surface,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    tagText: {
+        color: theme.colors.text,
+        fontSize: 12,
+    },
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
         marginBottom: 4,
+    },
+    location: {
+        color: theme.colors.textSecondary,
+        fontSize: 14,
+    },
+    detailText: {
+        color: theme.colors.text,
+        marginBottom: 8,
     },
     bio: {
         fontSize: 16,
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-        marginBottom: 8,
-        paddingHorizontal: 20,
+        color: theme.colors.text,
+        marginTop: 8,
+        lineHeight: 22,
     },
-    location: {
-        fontSize: 14,
-        color: theme.colors.textSecondary,
-        fontStyle: 'italic',
-    },
-    statsContainer: {
-        backgroundColor: theme.colors.surface,
-        padding: theme.spacing.md,
-        marginBottom: theme.spacing.md,
+    section: {
+        padding: theme.spacing.lg,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: theme.colors.text,
         marginBottom: theme.spacing.md,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: theme.spacing.md,
+    },
+    chip: {
+        backgroundColor: theme.colors.secondary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    chipText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+    availabilityBox: {
+        backgroundColor: theme.colors.surface,
+        padding: theme.spacing.md,
+        borderRadius: 8,
+    },
+    subTitle: {
+        color: theme.colors.textSecondary,
+        fontSize: 14,
+        marginBottom: 4,
+    },
+    bodyText: {
+        color: theme.colors.text,
+        fontSize: 16,
+    },
+    platformsContainer: {
+        gap: 8,
+    },
+    platformText: {
+        color: theme.colors.text,
+        fontSize: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    emptyText: {
+        color: theme.colors.textSecondary,
+        fontStyle: 'italic',
     },
     statsRow: {
         flexDirection: 'row',
@@ -249,39 +409,18 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: theme.colors.primary,
     },
-    gamesSection: {
+    editButton: {
+        backgroundColor: theme.colors.surface,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        margin: theme.spacing.lg,
         padding: theme.spacing.md,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: theme.spacing.md,
-    },
-    gamesGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    gameCard: {
-        width: 100,
+        borderRadius: 12,
         alignItems: 'center',
     },
-    gameCover: {
-        width: 100,
-        height: 140,
-        borderRadius: 8,
-        marginBottom: 8,
-        backgroundColor: '#333',
-    },
-    gameName: {
+    editButtonText: {
         color: theme.colors.text,
-        fontSize: 12,
-        textAlign: 'center',
-        fontWeight: '500',
-    },
-    emptyText: {
-        color: theme.colors.textSecondary,
-        fontStyle: 'italic',
+        fontWeight: 'bold',
+        fontSize: 16,
     }
 });
