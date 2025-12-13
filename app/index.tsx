@@ -8,44 +8,51 @@ export default function Index() {
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        console.log('[Index] Component mounted');
         setIsMounted(true);
 
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
-            if (session) {
-                // Check if user has a profile
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
+        const checkSession = async () => {
+            console.log('[Index] Checking session...');
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                console.log('[Index] Session result:', session ? 'Found' : 'Null', error);
 
-                if (profile) {
-                    router.replace('/(tabs)/explore');
+                if (session) {
+                    console.log('[Index] Fetching profile for:', session.user.id);
+                    const { data: profile, error: profileError } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    console.log('[Index] Profile result:', profile ? 'Found' : 'Null', profileError);
+
+                    if (profile) {
+                        console.log('[Index] Redirecting to Explore');
+                        router.replace('/(tabs)/explore');
+                    } else {
+                        console.log('[Index] Redirecting to Setup');
+                        router.replace('/profile/setup');
+                    }
                 } else {
-                    router.replace('/profile/setup');
+                    console.log('[Index] No session, redirecting to Login');
+                    router.replace('/login');
                 }
-            } else {
-                router.replace('/login');
+            } catch (e) {
+                console.error('[Index] Error during check:', e);
             }
+        };
+
+        checkSession();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[Index] Auth state change:', event);
+            // Logic repeated or simplified? For now let's rely on the initial check
         });
 
-        supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-
-                if (profile) {
-                    router.replace('/(tabs)/explore');
-                } else {
-                    router.replace('/profile/setup');
-                }
-            } else {
-                router.replace('/login');
-            }
-        });
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
     }, []);
 
     if (!isMounted) return null;
