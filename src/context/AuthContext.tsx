@@ -69,8 +69,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         router.replace('/onboarding/step1');
                     }
                 } else {
-                    // Profile complete -> Go to Tabs (if on login or onboarding)
-                    if (onLoginPage || onOnboarding) {
+                    // Profile complete -> Go to Tabs (only if on login)
+                    if (onLoginPage) {
                         router.replace('/(tabs)');
                     }
                 }

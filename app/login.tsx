@@ -70,7 +70,7 @@ export default function LoginScreen() {
                 provider,
                 options: {
                     redirectTo: redirectUrl,
-                    skipBrowserRedirect: false, // We want Supabase to handle the redirect
+                    skipBrowserRedirect: true, // We want Supabase to return the URL so we can open it manually
                 },
             });
 

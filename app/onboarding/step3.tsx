@@ -1,23 +1,64 @@
 import { useOnboarding } from '@/src/context/OnboardingContext';
+import { supabase } from '@/src/lib/supabase';
 import { theme } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep3() {
-    const { updateData, data } = useOnboarding();
+    const { updateData, data, submitProfile } = useOnboarding();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const returnTo = params.returnTo as string;
 
     const [discord, setDiscord] = useState(data.discord_handle || '');
     const [psn, setPsn] = useState(data.psn_handle || '');
     const [xbox, setXbox] = useState(data.xbox_handle || '');
     const [steam, setSteam] = useState(data.steam_handle || '');
 
-    const handleNext = () => {
+    // Load data if accessing directly
+    useEffect(() => {
+        const load = async () => {
+            if (data.username) {
+                // Context might have outdated data if we just refreshed, but for now trust context if populated
+                // Actually, if we are in direct access, context might be empty.
+                setDiscord(data.discord_handle || '');
+                setPsn(data.psn_handle || '');
+                setXbox(data.xbox_handle || '');
+                setSteam(data.steam_handle || '');
+                return;
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            if (profile) {
+                updateData({ ...profile, photos: profile.photos || [], game_genres: profile.game_genres || [], availability: profile.availability || {} });
+                setDiscord(profile.discord_handle || '');
+                setPsn(profile.psn_handle || '');
+                setXbox(profile.xbox_handle || '');
+                setSteam(profile.steam_handle || '');
+            }
+        };
+        load();
+    }, []);
+
+    const handleNext = async () => {
         updateData({ discord_handle: discord, psn_handle: psn, xbox_handle: xbox, steam_handle: steam });
-        router.push('/onboarding/step4');
+
+        if (returnTo) {
+            try {
+                await submitProfile();
+                router.replace(returnTo);
+            } catch (e: any) {
+                alert('Erro ao salvar: ' + e.message);
+            }
+        } else {
+            router.push('/onboarding/step4');
+        }
     };
 
     return (
@@ -90,8 +131,8 @@ export default function OnboardingStep3() {
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                            <Text style={styles.nextButtonText}>Próximo</Text>
-                            <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                            <Text style={styles.nextButtonText}>{returnTo ? 'Salvar' : 'Próximo'}</Text>
+                            <Ionicons name={returnTo ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>
                 </ScrollView>

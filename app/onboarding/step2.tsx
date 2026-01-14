@@ -5,16 +5,51 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep2() {
-    const { updateData, data } = useOnboarding();
+    const { updateData, data, submitProfile } = useOnboarding();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const returnTo = params.returnTo as string;
+
     const [loading, setLoading] = useState(false);
     const [photos, setPhotos] = useState<string[]>(data.photos || []);
+
+    // Load data if accessing directly
+    useEffect(() => {
+        const load = async () => {
+            if (data.username) {
+                setPhotos(data.photos || []);
+                return;
+            }
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            if (profile) {
+                updateData({ ...profile, photos: profile.photos || [], game_genres: profile.game_genres || [], availability: profile.availability || {} });
+                setPhotos(profile.photos || []);
+            }
+        };
+        load();
+    }, []);
+
+
+    // ... pickImage and uploadImage functions ... (keep them or verify if I need to re-include them if I am replacing the whole block, I should use replace_file_content carefully)
+    // I will target the imports and the beginning of the component to add the hooks, and the button section to update the button.
+    // Wait, the replace_file_content replaces a block. I need to be careful not to overwrite the middle logic `pickImage` etc if I target too broadly.
+    // Better to make 2 replaces: one for imports/setup, one for buttons.
+
+    // Changing strategy: using 2 separate calls if needed or ensuring target content includes enough context but not the whole file logic.
+
+    // Actually, I can replace the component start to inject variables, and the useEffect.
+    // And replace the buttons at the end.
+
+    // Let's do imports first.
 
     const pickImage = async () => {
         if (photos.length >= 3) {
@@ -94,13 +129,23 @@ export default function OnboardingStep2() {
         setPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (photos.length === 0) {
             Alert.alert('Foto obrigatória', 'Adicione pelo menos uma foto para continuar.');
             return;
         }
         updateData({ photos });
-        router.push('/onboarding/step3');
+
+        if (returnTo) {
+            try {
+                await submitProfile();
+                router.replace(returnTo);
+            } catch (e: any) {
+                alert('Erro ao salvar: ' + e.message);
+            }
+        } else {
+            router.push('/onboarding/step3');
+        }
     };
 
     return (
@@ -144,8 +189,8 @@ export default function OnboardingStep2() {
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                        <Text style={styles.nextButtonText}>Próximo</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                        <Text style={styles.nextButtonText}>{returnTo ? 'Salvar' : 'Próximo'}</Text>
+                        <Ionicons name={returnTo ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
                     </TouchableOpacity>
                 </View>
             </ScrollView>

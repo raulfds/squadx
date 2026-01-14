@@ -22,4 +22,11 @@ export interface Filters {
     minCommunication: number;
     minHumor: number;
     minCollaboration: number;
+    // New Filters
+    gender?: string;
+    sameLocation?: boolean;
+    samePlatform?: boolean;
+    commonGames?: boolean;
+    minAge?: number;
+    maxAge?: number;
 }

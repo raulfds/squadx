@@ -1,9 +1,10 @@
 import { useOnboarding } from '@/src/context/OnboardingContext';
+import { supabase } from '@/src/lib/supabase';
 import { Game, searchGames } from '@/src/services/igdb';
 import { theme } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,8 +16,10 @@ const DAYS = [
 const PERIODS = ['Manhã', 'Tarde', 'Noite'];
 
 export default function OnboardingStep4() {
-    const { updateData, data } = useOnboarding();
+    const { updateData, data, submitProfile } = useOnboarding();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const returnTo = params.returnTo as string;
 
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<Game[]>([]);
@@ -25,6 +28,52 @@ export default function OnboardingStep4() {
 
     // Availability State: { "Segunda": ["Manhã", "Noite"], ... }
     const [availability, setAvailability] = useState<{ [key: string]: string[] }>(data.availability || {});
+
+    // Load data if accessing directly
+    useEffect(() => {
+        const load = async () => {
+            if (data.username && data.games) {
+                // Already has data
+                return;
+            }
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            if (profile) {
+                // Fetch games manually since they are in a separate table usually? 
+                // Wait, data.games comes from where? Ah, checking profile.tsx:
+                // "const { data: gamesData } = await supabase.from('user_favorites')..."
+                // OnboardingContext uses 'games' in memory but saves to 'user_favorites' table likely in backend or via upsert in a separate table?
+                // Let's check OnboardingContext... it upserts 'profiles' but does it handle games?
+                // Checking OnboardingProvider content from memory...
+                // "game_genres: data.game_genres" is in upsert.
+                // "games: data.games" - is this column in 'profiles'?
+                // The 'profiles' upsert only had 'game_genres'. 
+                // 'user_favorites' table is used for games.
+                // So we need to FETCH games from 'user_favorites' and set them here.
+
+                const { data: gamesData } = await supabase.from('user_favorites').select('*').eq('user_id', session.user.id);
+
+                // Mapper needed? Game object structure in IGDB vs DB?
+                // If saved as JSON in user_favorites or individual rows?
+                // Re-reading 'profile.tsx' fetch: "const { data: gamesData } = await supabase.from('user_favorites').select('*').eq('user_id', session.user.id);"
+                // Assuming 'user_favorites' stores the full game object or enough to reconstruct.
+                // Let's assume for now gamesData matches Game[] structure or close enough.
+
+                updateData({
+                    ...profile,
+                    photos: profile.photos || [],
+                    game_genres: profile.game_genres || [],
+                    availability: profile.availability || {},
+                    games: gamesData || []
+                });
+                setSelectedGames(gamesData || []);
+                setAvailability(profile.availability || {});
+            }
+        };
+        load();
+    }, []);
 
     // Debounce search
     useEffect(() => {
@@ -64,7 +113,7 @@ export default function OnboardingStep4() {
         });
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (selectedGames.length === 0) {
             alert('Selecione pelo menos um jogo favorito.');
             return;
@@ -80,7 +129,18 @@ export default function OnboardingStep4() {
             game_genres: uniqueGenres,
             availability: availability,
         });
-        router.push('/onboarding/step5');
+
+        // Final step: submit profile
+        try {
+            await submitProfile();
+            if (returnTo) {
+                router.replace(returnTo);
+            } else {
+                router.replace('/(tabs)');
+            }
+        } catch (error: any) {
+            alert('Erro ao salvar perfil: ' + error.message);
+        }
     };
 
     return (
@@ -207,8 +267,8 @@ export default function OnboardingStep4() {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.navButton, styles.nextButton]} onPress={handleNext}>
-                    <Text style={styles.navButtonText}>Próximo</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                    <Text style={styles.navButtonText}>{returnTo ? 'Salvar' : 'Concluir'}</Text>
+                    <Ionicons name={returnTo ? "checkmark" : "checkmark-circle"} size={20} color="#FFF" />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
@@ -10,10 +11,11 @@ interface RatingModalProps {
     onClose: () => void;
     ratedUserId: string;
     ratedUsername: string;
+    ratedAvatarUrl?: string;
     onSuccess?: () => void;
 }
 
-export default function RatingModal({ visible, onClose, ratedUserId, ratedUsername, onSuccess }: RatingModalProps) {
+export default function RatingModal({ visible, onClose, ratedUserId, ratedUsername, ratedAvatarUrl, onSuccess }: RatingModalProps) {
     const [respect, setRespect] = useState(3);
     const [communication, setCommunication] = useState(3);
     const [humor, setHumor] = useState(3);
@@ -86,11 +88,21 @@ export default function RatingModal({ visible, onClose, ratedUserId, ratedUserna
             <View style={styles.overlay}>
                 <View style={styles.content}>
                     <View style={styles.header}>
-                        <Text style={styles.title}>Avaliar {ratedUsername}</Text>
+                        <Text style={styles.title}>Avaliar</Text>
                         <TouchableOpacity onPress={onClose}>
                             <Ionicons name="close" size={24} color={theme.colors.text} />
                         </TouchableOpacity>
                     </View>
+
+                    <View style={styles.userInfo}>
+                        <Image
+                            source={{ uri: ratedAvatarUrl || 'https://via.placeholder.com/100' }}
+                            style={styles.avatar}
+                            contentFit="cover"
+                        />
+                        <Text style={styles.username}>{ratedUsername}</Text>
+                    </View>
+
                     <Text style={styles.subtitle}>Como foi sua experiência com este jogador?</Text>
 
                     {renderSlider("Respeito", respect, setRespect, "#4CB5F5")}
@@ -173,5 +185,20 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    userInfo: {
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+    },
+    avatar: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        marginBottom: 8,
+    },
+    username: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: theme.colors.text,
     }
 });

@@ -131,15 +131,67 @@ export default function ProfileScreen() {
                     {!profile?.photos?.length && !profile?.avatar_url && (
                         <Text style={styles.noPhotosText}>Sem fotos</Text>
                     )}
+                    <TouchableOpacity style={styles.sectionEditButton} onPress={() => router.push('/onboarding/step2')}>
+                        <Ionicons name="pencil" size={16} color="#FFF" />
+                    </TouchableOpacity>
                 </View>
 
                 {/* Identity */}
                 <View style={styles.infoSection}>
-                    <View style={styles.nameRow}>
-                        <Text style={styles.username}>{profile?.username || 'Novo Usuário'}</Text>
-                        {profile?.gender && <View style={styles.tag}><Text style={styles.tagText}>{profile.gender}</Text></View>}
+                    <View style={styles.headerRow}>
+                        <View style={{ flex: 1 }}>
+                            <View style={styles.nameRow}>
+                                <Text style={styles.username}>{profile?.username || 'Novo Usuário'}</Text>
+                                {ratings && (
+                                    <View style={styles.overallRatingBadge}>
+                                        <Ionicons name="star" size={16} color="#FFF" />
+                                        <Text style={styles.overallRatingText}>
+                                            {((ratings.avg_respect + ratings.avg_communication + ratings.avg_humor + ratings.avg_collaboration) / 4).toFixed(1)}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                            {profile?.gender && <View style={styles.tag}><Text style={styles.tagText}>{profile.gender}</Text></View>}
+                            <Text style={styles.fullName}>{profile?.full_name}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/onboarding/step1')}>
+                            <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                        </TouchableOpacity>
                     </View>
-                    <Text style={styles.fullName}>{profile?.full_name}</Text>
+
+                    {/* Reputation Row */}
+                    {ratings && (
+                        <View style={styles.reputationRow}>
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
+                                    <Ionicons name="thumbs-up" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_respect || '-'}</Text>
+                                <Text style={styles.repLabel}>Resp.</Text>
+                            </View>
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
+                                    <Ionicons name="chatbubbles" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_communication || '-'}</Text>
+                                <Text style={styles.repLabel}>Com.</Text>
+                            </View>
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
+                                    <Ionicons name="happy" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_humor || '-'}</Text>
+                                <Text style={styles.repLabel}>Humor</Text>
+                            </View>
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
+                                    <Ionicons name="people" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_collaboration || '-'}</Text>
+                                <Text style={styles.repLabel}>Colab.</Text>
+                            </View>
+                        </View>
+                    )}
 
                     {profile?.city && profile?.state && (
                         <View style={styles.locationRow}>
@@ -155,73 +207,8 @@ export default function ProfileScreen() {
                     <Text style={styles.bio}>{profile?.bio || 'Escreva algo sobre você...'}</Text>
                 </View>
 
-                {/* Genres & Availability */}
-                {(profile?.game_genres?.length > 0 || profile?.availability?.times?.length > 0) && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Perfil Gamer</Text>
-
-                        {profile?.game_genres?.length > 0 && (
-                            <View style={styles.chipRow}>
-                                {profile.game_genres.map((g: string) => (
-                                    <View key={g} style={styles.chip}>
-                                        <Text style={styles.chipText}>{g}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-
-                        {profile?.availability?.times?.length > 0 && (
-                            <View style={styles.availabilityBox}>
-                                <Text style={styles.subTitle}>Disponibilidade:</Text>
-                                <Text style={styles.bodyText}>{profile.availability.times.join(', ')}</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Socials / Platforms */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Plataformas</Text>
-                    <View style={styles.platformsContainer}>
-                        {profile?.discord_handle ? <Text style={styles.platformText}><Ionicons name="logo-discord" size={16} color="#5865F2" /> {profile.discord_handle}</Text> : null}
-                        {profile?.psn_handle ? <Text style={styles.platformText}><Ionicons name="logo-playstation" size={16} color="#003087" /> {profile.psn_handle}</Text> : null}
-                        {profile?.xbox_handle ? <Text style={styles.platformText}><Ionicons name="logo-xbox" size={16} color="#107C10" /> {profile.xbox_handle}</Text> : null}
-                        {profile?.steam_handle ? <Text style={styles.platformText}><Ionicons name="logo-steam" size={16} color="#1b2838" /> {profile.steam_handle}</Text> : null}
-
-                        {!profile?.discord_handle && !profile?.psn_handle && !profile?.xbox_handle && !profile?.steam_handle && (
-                            <Text style={styles.emptyText}>Nenhuma conta vinculada.</Text>
-                        )}
-                    </View>
-                </View>
-
-                {/* Ratings */}
-                {ratings && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Reputação</Text>
-                        <View style={styles.statsRow}>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Respeito</Text>
-                                <Text style={styles.statValue}>{ratings.avg_respect || '-'}</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Humor</Text>
-                                <Text style={styles.statValue}>{ratings.avg_humor || '-'}</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Comunic.</Text>
-                                <Text style={styles.statValue}>{ratings.avg_communication || '-'}</Text>
-                            </View>
-                            <View style={styles.statItem}>
-                                <Text style={styles.statLabel}>Colab.</Text>
-                                <Text style={styles.statValue}>{ratings.avg_collaboration || '-'}</Text>
-                            </View>
-                        </View>
-                    </View>
-                )}
-
-                {/* Edit Button Placeholder */}
-                <TouchableOpacity style={styles.editButton} onPress={() => router.push('/onboarding/step1')}>
-                    <Text style={styles.editButtonText}>Editar Perfil</Text>
+                <TouchableOpacity style={[styles.editButton, { marginTop: 20, borderColor: theme.colors.error, backgroundColor: 'transparent' }]} onPress={handleSignOut}>
+                    <Text style={[styles.editButtonText, { color: theme.colors.error }]}>Sair da Conta</Text>
                 </TouchableOpacity>
 
             </ScrollView>
@@ -422,5 +409,73 @@ const styles = StyleSheet.create({
         color: theme.colors.text,
         fontWeight: 'bold',
         fontSize: 16,
-    }
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    iconButton: {
+        padding: 8,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.md,
+    },
+    sectionEditButton: {
+        position: 'absolute',
+        bottom: 10,
+        right: 10,
+        backgroundColor: theme.colors.primary,
+        padding: 8,
+        borderRadius: 20,
+    },
+    // New Reputation Styles
+    overallRatingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.secondary,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+        marginLeft: 8,
+    },
+    overallRatingText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    reputationRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: theme.spacing.lg,
+        backgroundColor: theme.colors.background,
+        padding: theme.spacing.md,
+        borderRadius: 16,
+    },
+    repItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    repIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    repValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    repLabel: {
+        fontSize: 10,
+        color: theme.colors.textSecondary,
+        marginTop: 2,
+    },
 });

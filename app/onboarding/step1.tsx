@@ -2,27 +2,28 @@ import { useOnboarding } from '@/src/context/OnboardingContext';
 import { supabase } from '@/src/lib/supabase';
 import { theme } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep1() {
-    const { updateData, data } = useOnboarding();
+    const { updateData, data, submitProfile } = useOnboarding();
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const returnTo = params.returnTo as string;
 
     const [username, setUsername] = useState(data.username || '');
     const [fullName, setFullName] = useState(data.full_name || '');
     const [bio, setBio] = useState(data.bio || '');
     const [birthDate, setBirthDate] = useState(data.birth_date || '');
+    const [dateDisplay, setDateDisplay] = useState(data.birth_date ? data.birth_date.split('-').reverse().join('/') : '');
     const [gender, setGender] = useState(data.gender || '');
+    const [cep, setCep] = useState('');
     const [city, setCity] = useState(data.city || '');
     const [state, setState] = useState(data.state || '');
-    const [cep, setCep] = useState('');
-    const [dateDisplay, setDateDisplay] = useState(
-        data.birth_date ? data.birth_date.split('-').reverse().join('/') : ''
-    );
-    const [loadingCep, setLoadingCep] = useState(false);
+    const [loadingLocation, setLoadingLocation] = useState(false); // Renamed from loadingCep to be more generic if needed
+    const [loadingCep, setLoadingCep] = useState(false); // Keeping this for now, but loadingLocation might replace it
 
     /* Masks */
     const maskDate = (value: string) => {
@@ -78,6 +79,53 @@ export default function OnboardingStep1() {
         }
     };
 
+
+    // Load existing data if available (Edit Mode)
+    useEffect(() => {
+        const loadUserData = async () => {
+            if (data.username) return; // Already has data, probably from context or just filled
+
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+
+                const { data: profile, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (profile) {
+                    // Populate local state
+                    setUsername(profile.username || '');
+                    setFullName(profile.full_name || '');
+                    setBio(profile.bio || '');
+                    setBirthDate(profile.birth_date || '');
+                    setGender(profile.gender || '');
+                    setCity(profile.city || '');
+                    setState(profile.state || '');
+
+                    if (profile.birth_date) {
+                        setDateDisplay(profile.birth_date.split('-').reverse().join('/'));
+                    }
+
+                    // Populate Context for next steps
+                    updateData({
+                        ...profile,
+                        // Ensure arrays are initialized
+                        photos: profile.photos || [],
+                        game_genres: profile.game_genres || [],
+                        availability: profile.availability || {},
+                    });
+                }
+            } catch (error) {
+                console.log('Error loading user data for edit:', error);
+            }
+        };
+
+        loadUserData();
+    }, []);
+
     const handleNext = () => {
         if (!username || !birthDate || birthDate.length !== 10) {
             alert('Por favor, preencha o nome de usuário e uma data de nascimento válida.');
@@ -86,7 +134,6 @@ export default function OnboardingStep1() {
         updateData({ username, full_name: fullName, bio, birth_date: birthDate, gender, city, state });
         router.push('/onboarding/step2');
     };
-
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -205,8 +252,8 @@ export default function OnboardingStep1() {
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                        <Text style={styles.nextButtonText}>Próximo</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                        <Text style={styles.nextButtonText}>{returnTo ? 'Salvar' : 'Próximo'}</Text>
+                        <Ionicons name={returnTo ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
                     </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>

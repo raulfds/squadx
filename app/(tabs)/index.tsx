@@ -49,14 +49,48 @@ export default function ExploreScreen() {
   const fetchProfiles = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_profiles_to_explore', {
+      // 1. Try with current filters
+      let { data, error } = await supabase.rpc('get_profiles_to_explore', {
         p_limit: 10,
         min_respect: filters.minRespect,
         min_communication: filters.minCommunication,
         min_humor: filters.minHumor,
-        min_collaboration: filters.minCollaboration
+        min_collaboration: filters.minCollaboration,
+        p_gender: filters.gender,
+        p_min_age: filters.minAge,
+        p_max_age: filters.maxAge,
+        p_same_location: filters.sameLocation,
+        p_same_platform: filters.samePlatform,
+        p_common_games: filters.commonGames
       });
+
       if (error) throw error;
+
+      // 2. Fallback logic
+      if (!data || data.length === 0) {
+        // Check if we have active filters (assuming 1 is default/min)
+        const hasFilters = filters.minRespect > 1 ||
+          filters.minCommunication > 1 ||
+          filters.minHumor > 1 ||
+          filters.minCollaboration > 1;
+
+        if (hasFilters) {
+          console.log('No matches with filters, trying fallback...');
+          const { data: fallbackData, error: fallbackError } = await supabase.rpc('get_profiles_to_explore', {
+            p_limit: 10,
+            min_respect: 1,
+            min_communication: 1,
+            min_humor: 1,
+            min_collaboration: 1
+          });
+
+          if (!fallbackError && fallbackData && fallbackData.length > 0) {
+            data = fallbackData;
+            Alert.alert('Sem resultados exatos', 'Não encontramos ninguém com seus filtros específicos, mas dê uma chance a estas pessoas!');
+          }
+        }
+      }
+
       setProfiles(data || []);
       setCurrentProfileIndex(0);
     } catch (error: any) {

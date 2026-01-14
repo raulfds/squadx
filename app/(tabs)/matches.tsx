@@ -74,7 +74,7 @@ export default function MatchesScreen() {
     const renderItem = ({ item }: { item: any }) => (
         <TouchableOpacity style={styles.matchItem} onPress={() => setSelectedMatch(item)}>
             <Image
-                source={{ uri: item.avatar_url || 'https://via.placeholder.com/100' }}
+                source={{ uri: (item.photos && item.photos.length > 0) ? item.photos[0] : (item.avatar_url || 'https://via.placeholder.com/100') }}
                 style={styles.avatar}
                 contentFit="cover"
             />
@@ -126,7 +126,7 @@ export default function MatchesScreen() {
 
                         <View style={styles.profileSummary}>
                             <Image
-                                source={{ uri: selectedMatch?.avatar_url || 'https://via.placeholder.com/100' }}
+                                source={{ uri: (selectedMatch?.photos && selectedMatch.photos.length > 0) ? selectedMatch.photos[0] : (selectedMatch?.avatar_url || 'https://via.placeholder.com/100') }}
                                 style={styles.modalAvatar}
                             />
                             <Text style={styles.modalUsername}>{selectedMatch?.username}</Text>
@@ -188,6 +188,7 @@ export default function MatchesScreen() {
                     onClose={() => setRatingModalVisible(false)}
                     ratedUserId={selectedMatch.id}
                     ratedUsername={selectedMatch.username}
+                    ratedAvatarUrl={(selectedMatch?.photos && selectedMatch.photos.length > 0) ? selectedMatch.photos[0] : selectedMatch?.avatar_url}
                 />
             )}
         </View>
