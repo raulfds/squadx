@@ -157,89 +157,209 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Identity */}
-                {/* Identity */}
+                {/* Reputation (Moved to Top) */}
+                {ratings && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionSubtitle}>Reputação</Text>
+                        <View style={styles.reputationRow}>
+                            {/* Overall Score */}
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: theme.colors.secondary }]}>
+                                    <Ionicons name="star" size={20} color="#000" />
+                                </View>
+                                <Text style={styles.repValue}>
+                                    {((ratings.avg_respect + ratings.avg_communication + ratings.avg_humor + ratings.avg_collaboration) / 4).toFixed(1)}
+                                </Text>
+                                <Text style={styles.repLabel}>Geral</Text>
+                            </View>
+
+                            <View style={styles.verticalDivider} />
+
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
+                                    <Ionicons name="thumbs-up" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_respect || '-'}</Text>
+                                <Text style={styles.repLabel}>Resp.</Text>
+                            </View>
+
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
+                                    <Ionicons name="chatbubbles" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_communication || '-'}</Text>
+                                <Text style={styles.repLabel}>Com.</Text>
+                            </View>
+
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
+                                    <Ionicons name="happy" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_humor || '-'}</Text>
+                                <Text style={styles.repLabel}>Humor</Text>
+                            </View>
+
+                            <View style={styles.repItem}>
+                                <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
+                                    <Ionicons name="people" size={16} color="#FFF" />
+                                </View>
+                                <Text style={styles.repValue}>{ratings.avg_collaboration || '-'}</Text>
+                                <Text style={styles.repLabel}>Colab.</Text>
+                            </View>
+                        </View>
+                    </View>
+                )}
+
+                {/* Identity / Basic Info */}
                 <View style={styles.infoSection}>
                     <View style={styles.headerRow}>
                         <View style={{ flex: 1 }}>
                             <View style={styles.nameRow}>
                                 <Text style={styles.username}>{profile?.username || 'Novo Usuário'}</Text>
+                                <TouchableOpacity onPress={() => openEdit('username', 'Nome de Usuário', profile?.username)}>
+                                    <Ionicons name="pencil" size={16} color={theme.colors.textSecondary} style={{ marginLeft: 8 }} />
+                                </TouchableOpacity>
+
                                 {profile?.gender && <View style={styles.tag}><Text style={styles.tagText}>{profile.gender}</Text></View>}
                             </View>
-                            <Text style={styles.fullName}>{profile?.full_name}</Text>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={styles.fullName}>{profile?.full_name}</Text>
+                                <TouchableOpacity onPress={() => openEdit('full_name', 'Nome Completo', profile?.full_name)}>
+                                    <Ionicons name="pencil" size={14} color={theme.colors.textSecondary} style={{ marginLeft: 6 }} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                         <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/onboarding/step1')}>
-                            <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                            <Ionicons name="settings-outline" size={20} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
-
-                    {profile?.city && profile?.state && (
-                        <View style={styles.locationRow}>
-                            <Ionicons name="location-sharp" size={16} color={theme.colors.textSecondary} />
-                            <Text style={styles.location}>{profile.city} - {profile.state}</Text>
-                        </View>
-                    )}
 
                     {profile?.birth_date && (
                         <Text style={styles.detailText}>🎂 {profile.birth_date.split('-').reverse().join('/')}</Text>
                     )}
 
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                        <Text style={styles.sectionSubtitle}>Bio</Text>
+                        <TouchableOpacity onPress={() => openEdit('bio', 'Bio', profile?.bio, true)}>
+                            <Ionicons name="pencil" size={14} color={theme.colors.textSecondary} style={{ marginLeft: 6 }} />
+                        </TouchableOpacity>
+                    </View>
                     <Text style={styles.bio}>{profile?.bio || 'Escreva algo sobre você...'}</Text>
+                </View>
 
-                    {/* Reputation Row - Now Included in Identity Section for prominence, or separate? User said "junto com as notas" */}
-                    {/* I'll put it right after the bio or maybe before? Usually reputation is high priority. Let's put it after bio for flow. */}
-
-                    {ratings && (
-                        <View style={styles.reputationContainer}>
-                            <Text style={styles.sectionSubtitle}>Reputação</Text>
-                            <View style={styles.reputationRow}>
-                                {/* Overall Score */}
-                                <View style={styles.repItem}>
-                                    <View style={[styles.repIcon, { backgroundColor: theme.colors.secondary }]}>
-                                        <Ionicons name="star" size={20} color="#000" />
-                                    </View>
-                                    <Text style={styles.repValue}>
-                                        {((ratings.avg_respect + ratings.avg_communication + ratings.avg_humor + ratings.avg_collaboration) / 4).toFixed(1)}
-                                    </Text>
-                                    <Text style={styles.repLabel}>Geral</Text>
-                                </View>
-
-                                <View style={styles.verticalDivider} />
-
-                                <View style={styles.repItem}>
-                                    <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
-                                        <Ionicons name="thumbs-up" size={16} color="#FFF" />
-                                    </View>
-                                    <Text style={styles.repValue}>{ratings.avg_respect || '-'}</Text>
-                                    <Text style={styles.repLabel}>Resp.</Text>
-                                </View>
-
-                                <View style={styles.repItem}>
-                                    <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
-                                        <Ionicons name="chatbubbles" size={16} color="#FFF" />
-                                    </View>
-                                    <Text style={styles.repValue}>{ratings.avg_communication || '-'}</Text>
-                                    <Text style={styles.repLabel}>Com.</Text>
-                                </View>
-
-                                <View style={styles.repItem}>
-                                    <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
-                                        <Ionicons name="happy" size={16} color="#FFF" />
-                                    </View>
-                                    <Text style={styles.repValue}>{ratings.avg_humor || '-'}</Text>
-                                    <Text style={styles.repLabel}>Humor</Text>
-                                </View>
-
-                                <View style={styles.repItem}>
-                                    <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
-                                        <Ionicons name="people" size={16} color="#FFF" />
-                                    </View>
-                                    <Text style={styles.repValue}>{ratings.avg_collaboration || '-'}</Text>
-                                    <Text style={styles.repLabel}>Colab.</Text>
-                                </View>
-                            </View>
+                {/* Location Section */}
+                {profile?.city && profile?.state && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Localização</Text>
+                            <TouchableOpacity onPress={() => router.push('/onboarding/step1')}>
+                                <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                            </TouchableOpacity>
                         </View>
+                        <View style={styles.locationRow}>
+                            <Ionicons name="location-sharp" size={16} color={theme.colors.textSecondary} />
+                            <Text style={styles.location}>{profile.city} - {profile.state}</Text>
+                        </View>
+                    </View>
+                )}
+
+                {/* Games Section */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Meus Jogos</Text>
+                        <TouchableOpacity onPress={() => router.push('/onboarding/step4')}>
+                            <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {profile?.games?.length > 0 ? (
+                        <View style={styles.chipRow}>
+                            {profile.games.map((g: any) => (
+                                <View key={g.id} style={styles.chip}>
+                                    <Text style={styles.chipText}>{g.name}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : profile?.game_genres?.length > 0 ? (
+                        <View style={styles.chipRow}>
+                            {profile.game_genres.map((g: string) => (
+                                <View key={g} style={styles.chip}>
+                                    <Text style={styles.chipText}>{g}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <Text style={styles.emptyText}>Sem jogos favoritos.</Text>
                     )}
+                </View>
+
+                {/* Availability Section */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Disponibilidade</Text>
+                        <TouchableOpacity onPress={() => router.push('/onboarding/step4')}>
+                            <Ionicons name="pencil" size={20} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+                    {profile?.availability?.times?.length > 0 ? (
+                        <View style={styles.availabilityBox}>
+                            <Text style={styles.bodyText}>{profile.availability.times.join(', ')}</Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.emptyText}>Sem disponibilidade definida.</Text>
+                    )}
+                </View>
+
+                {/* Socials / Platforms */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Plataformas</Text>
+                        <TouchableOpacity onPress={() => router.push('/onboarding/step3')}>
+                            <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.platformsContainer}>
+                        <View style={styles.platformRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="logo-discord" size={20} color="#5865F2" />
+                                <Text style={styles.platformText}> {profile?.discord_handle || 'Vincular Discord'}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => openEdit('discord_handle', 'Discord', profile?.discord_handle)}>
+                                <Ionicons name="pencil" size={16} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.platformRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="logo-playstation" size={20} color="#003087" />
+                                <Text style={styles.platformText}> {profile?.psn_handle || 'Vincular PSN'}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => openEdit('psn_handle', 'PSN', profile?.psn_handle)}>
+                                <Ionicons name="pencil" size={16} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.platformRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="logo-xbox" size={20} color="#107C10" />
+                                <Text style={styles.platformText}> {profile?.xbox_handle || 'Vincular Xbox'}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => openEdit('xbox_handle', 'Xbox', profile?.xbox_handle)}>
+                                <Ionicons name="pencil" size={16} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.platformRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="logo-steam" size={20} color="#1b2838" />
+                                <Text style={styles.platformText}> {profile?.steam_handle || 'Vincular Steam'}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => openEdit('steam_handle', 'Steam', profile?.steam_handle)}>
+                                <Ionicons name="pencil" size={16} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
 
                 <TouchableOpacity style={[styles.editButton, { marginTop: 20, borderColor: theme.colors.error, backgroundColor: 'transparent' }]} onPress={handleSignOut}>
