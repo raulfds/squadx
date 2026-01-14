@@ -1,181 +1,137 @@
--- Enable pgcrypto for password hashing
-create extension if not exists "pgcrypto";
+DO $$
+DECLARE
+  -- Generate new UUIDs for the users
+  user1_id uuid := gen_random_uuid();
+  user2_id uuid := gen_random_uuid();
+BEGIN
+  --------------------------------------------------------------------------------
+  -- 1. Insert into auth.users
+  -- NOTE: You must run this via the Supabase SQL Editor (Dashboard -> SQL Editor).
+  -- This creates the user login. Password is 'password123'.
+  --------------------------------------------------------------------------------
+  
+  -- User 1: Ricardo FPS
+  INSERT INTO auth.users (
+    id, instance_id, aud, role, email, encrypted_password, 
+    email_confirmed_at, recovery_sent_at, last_sign_in_at, 
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at, 
+    confirmation_token, email_change, email_change_token_new, recovery_token
+  )
+  VALUES (
+    user1_id, 
+    '00000000-0000-0000-0000-000000000000', 
+    'authenticated', 
+    'authenticated', 
+    'ricardo_fps@test.com', -- UNIQUE EMAIL
+    crypt('password123', gen_salt('bf')), 
+    now(), now(), now(), 
+    '{"provider":"email","providers":["email"]}', 
+    '{"username": "Ricardo FPS"}', 
+    now(), now(), 
+    '', '', '', ''
+  );
 
--- Function to create a user safely
-create or replace function create_fake_user(
-    p_email text,
-    p_password text,
-    p_username text,
-    p_bio text,
-    p_city text,
-    p_state text,
-    p_avatar_url text,
-    p_discord text default null,
-    p_psn text default null,
-    p_xbox text default null,
-    p_steam text default null
-) returns void as $$
-declare
-    v_user_id uuid;
-begin
-    -- 1. Check if user exists in auth.users
-    select id into v_user_id from auth.users where email = p_email;
-    
-    -- 2. If not, insert into auth.users
-    if v_user_id is null then
-        v_user_id := gen_random_uuid();
-        
-        insert into auth.users (
-            id,
-            instance_id,
-            aud,
-            role,
-            email,
-            encrypted_password,
-            email_confirmed_at,
-            recovery_sent_at,
-            last_sign_in_at,
-            raw_app_meta_data,
-            raw_user_meta_data,
-            created_at,
-            updated_at
-        ) values (
-            v_user_id,
-            '00000000-0000-0000-0000-000000000000', -- Default instance_id
-            'authenticated',
-            'authenticated',
-            p_email,
-            crypt(p_password, gen_salt('bf')), -- Hash password
-            now(), -- Auto confirm email
-            now(),
-            now(),
-            '{"provider": "email", "providers": ["email"]}',
-            '{}',
-            now(),
-            now()
-        );
-        
-        -- Insert identity (needed for some auth flows)
-        insert into auth.identities (
-            id,
-            user_id,
-            identity_data,
-            provider,
-            provider_id,
-            last_sign_in_at,
-            created_at,
-            updated_at
-        ) values (
-            v_user_id,
-            v_user_id,
-            format('{"sub": "%s", "email": "%s"}', v_user_id, p_email)::jsonb,
-            'email',
-            v_user_id, -- provider_id
-            now(),
-            now(),
-            now()
-        );
-    end if;
+  -- User 2: Beatriz RPG
+  INSERT INTO auth.users (
+    id, instance_id, aud, role, email, encrypted_password, 
+    email_confirmed_at, recovery_sent_at, last_sign_in_at, 
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at, 
+    confirmation_token, email_change, email_change_token_new, recovery_token
+  )
+  VALUES (
+    user2_id, 
+    '00000000-0000-0000-0000-000000000000', 
+    'authenticated', 
+    'authenticated', 
+    'beatriz_rpg@test.com', -- UNIQUE EMAIL
+    crypt('password123', gen_salt('bf')), 
+    now(), now(), now(), 
+    '{"provider":"email","providers":["email"]}', 
+    '{"username": "Beatriz RPG"}', 
+    now(), now(), 
+    '', '', '', ''
+  );
 
-    -- 3. Insert or Update public.profile
-    insert into public.profiles (
-        id,
-        username,
-        bio,
-        city,
-        state,
-        avatar_url,
-        discord_handle,
-        psn_handle,
-        xbox_handle,
-        steam_handle,
-        updated_at
-    ) values (
-        v_user_id,
-        p_username,
-        p_bio,
-        p_city,
-        p_state,
-        p_avatar_url,
-        p_discord,
-        p_psn,
-        p_xbox,
-        p_steam,
-        now()
-    )
-    on conflict (id) do update set
-        username = excluded.username,
-        bio = excluded.bio,
-        city = excluded.city,
-        state = excluded.state,
-        avatar_url = excluded.avatar_url,
-        discord_handle = excluded.discord_handle,
-        psn_handle = excluded.psn_handle,
-        xbox_handle = excluded.xbox_handle,
-        steam_handle = excluded.steam_handle;
+  --------------------------------------------------------------------------------
+  -- 2. Insert/Update Public Profiles
+  -- If you have a trigger that creates profiles automatically, 
+  -- the defined values here will overwrite the defaults via ON CONFLICT UPDATE.
+  --------------------------------------------------------------------------------
 
-end;
-$$ language plpgsql security definer;
-
--- SEED USERS
--- Password for all is '123456'
-
--- 1. Dev-Marcos (Male, RPG/Action)
-select create_fake_user(
-    'marcos@dev.com',
-    '123456',
-    'Dev-Marcos',
-    'Curto RPGs de mundo aberto e jogos de ação. Busco duo para Elden Ring e coop em geral. Jogo sério mas sem rage.',
+  -- User 1 Profile
+  INSERT INTO public.profiles (
+    id, username, full_name, city, state, bio, avatar_url, photos, game_genres, availability
+  )
+  VALUES (
+    user1_id,
+    'Ricardo FPS',
+    'Ricardo Silva',
     'São Paulo',
     'SP',
-    'https://i.pravatar.cc/300?u=marcos',
-    'marcos_dev#1234',
-    'MarcosGamer88',
-    null,
-    'steam_marcos'
-);
+    'Focado em subir de elo no Valorant. Jogo sério, mas sem rage.',
+    'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=500&auto=format&fit=crop&q=60',
+    ARRAY[
+      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=500&auto=format&fit=crop&q=60', 
+      'https://images.unsplash.com/photo-1487309078313-fad80c3ec1e5?w=500&auto=format&fit=crop&q=60'
+    ],
+    ARRAY['FPS', 'Competitivo'],
+    '{"Segunda": ["Noite"], "Quarta": ["Noite"], "Sábado": ["Tarde", "Noite"]}'::jsonb
+  ) 
+  ON CONFLICT (id) DO UPDATE SET
+    username = EXCLUDED.username,
+    full_name = EXCLUDED.full_name,
+    city = EXCLUDED.city,
+    state = EXCLUDED.state,
+    bio = EXCLUDED.bio,
+    avatar_url = EXCLUDED.avatar_url,
+    photos = EXCLUDED.photos,
+    game_genres = EXCLUDED.game_genres,
+    availability = EXCLUDED.availability;
 
--- 2. Dev-Julia (Female, FPS/Competitivo)
-select create_fake_user(
-    'julia@dev.com',
-    '123456',
-    'Dev-Julia',
-    'Main Valorant e Overwatch. Jogo pra ganhar, ranking Imortal. Se não for pra tryhardar nem chama. Comunicação é tudo.',
-    'Rio de Janeiro',
-    'RJ',
-    'https://i.pravatar.cc/300?u=julia',
-    'juju_vali#9999',
-    null,
-    null,
-    null
-);
-
--- 3. Dev-Lucas (Male, Strategy/Indie)
-select create_fake_user(
-    'lucas@dev.com',
-    '123456',
-    'Dev-Lucas',
-    'Fã de jogos indie e estratégia. Civ VI, Stardew Valley e Factorio. Gosto de conversar sobre game design.',
+  -- User 2 Profile
+  INSERT INTO public.profiles (
+    id, username, full_name, city, state, bio, avatar_url, photos, game_genres, availability
+  )
+  VALUES (
+    user2_id,
+    'Beatriz RPG',
+    'Beatriz Gomes',
     'Curitiba',
     'PR',
-    'https://i.pravatar.cc/300?u=lucas',
-    'lucas_strat',
-    null,
-    'LucasX',
-    'steam_id_lucas'
-);
+    'Amo explorar mundos abertos e fazer 100% das quests secundárias.',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=60',
+    ARRAY[
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&auto=format&fit=crop&q=60', 
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&auto=format&fit=crop&q=60'
+    ],
+    ARRAY['RPG', 'Aventura'],
+    '{"Domingo": ["Manhã", "Tarde", "Noite"], "Sexta": ["Noite"]}'::jsonb
+  ) 
+  ON CONFLICT (id) DO UPDATE SET
+    username = EXCLUDED.username,
+    full_name = EXCLUDED.full_name,
+    city = EXCLUDED.city,
+    state = EXCLUDED.state,
+    bio = EXCLUDED.bio,
+    avatar_url = EXCLUDED.avatar_url,
+    photos = EXCLUDED.photos,
+    game_genres = EXCLUDED.game_genres,
+    availability = EXCLUDED.availability;
 
--- 4. Dev-Ana (Female, Cozy/Sim)
-select create_fake_user(
-    'ana@dev.com',
-    '123456',
-    'Dev-Ana',
-    'Animal Crossing e The Sims são minha vida. Ocasionalmente um Mario Kart. Jogo pra relaxar no fim do dia.',
-    'Belo Horizonte',
-    'MG',
-    'https://i.pravatar.cc/300?u=ana',
-    null,
-    null,
-    'AnaCozy',
-    null
-);
+  --------------------------------------------------------------------------------
+  -- 3. Insert User Favorites (Games)
+  --------------------------------------------------------------------------------
+
+  -- User 1 Games (Valorant, CS:GO)
+  INSERT INTO public.user_favorites (user_id, game_id, game_name, game_cover_url)
+  VALUES 
+    (user1_id, '1337', 'Valorant', 'https://images.igdb.com/igdb/image/upload/t_cover_big/co2av4.png'),
+    (user1_id, '7331', 'CS:GO', 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1vct.png');
+
+  -- User 2 Games (Baldur's Gate 3, Witcher 3)
+  INSERT INTO public.user_favorites (user_id, game_id, game_name, game_cover_url)
+  VALUES 
+    (user2_id, '1111', 'Baldur''s Gate 3', 'https://images.igdb.com/igdb/image/upload/t_cover_big/co670h.png'),
+    (user2_id, '2222', 'The Witcher 3', 'https://images.igdb.com/igdb/image/upload/t_cover_big/co1wyy.png');
+
+END $$;

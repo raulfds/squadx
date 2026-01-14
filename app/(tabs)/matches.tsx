@@ -2,17 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ProfileModal from '../../src/components/ProfileModal';
+import RatingModal from '../../src/components/RatingModal';
 import { supabase } from '../../src/lib/supabase';
 import { theme } from '../../src/theme';
-
-import RatingModal from '../../src/components/RatingModal';
 
 export default function MatchesScreen() {
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedMatch, setSelectedMatch] = useState<any>(null);
     const [ratingModalVisible, setRatingModalVisible] = useState(false);
+    const [matchGames, setMatchGames] = useState<any[]>([]);
+    const [matchRating, setMatchRating] = useState<any>(null);
 
     useEffect(() => {
         fetchMatches();
@@ -24,7 +26,13 @@ export default function MatchesScreen() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
 
-            // Simple "Match" logic: Users I liked who also liked me
+            // Get matches where current user matched others (and they matched back)
+            // This logic might need refinement depending on how 'matches' are stored. 
+            // Assuming we check for mutual swipes or if there is a 'matches' table.
+            // Based on handleSwipe in index.tsx, we check 'swipes' table.
+
+            // Simplified match fetching: Find people I liked who also liked me
+            // 1. Get my likes
             const { data: myLikes } = await supabase
                 .from('swipes')
                 .select('swiped_id')
@@ -38,32 +46,49 @@ export default function MatchesScreen() {
 
             const myLikedIds = myLikes.map(l => l.swiped_id);
 
-            const { data: mutualLikes } = await supabase
+            // 2. Check which of them liked me back
+            const { data: mutualSwipes, error } = await supabase
                 .from('swipes')
-                .select('swiper_id')
-                .in('swiper_id', myLikedIds)
+                .select('swiper_id, profiles:swiper_id(*)') // Fetch profile info of the swiper (the matched person)
                 .eq('swiped_id', session.user.id)
-                .eq('is_like', true);
+                .eq('is_like', true)
+                .in('swiper_id', myLikedIds);
 
-            if (!mutualLikes || mutualLikes.length === 0) {
-                setMatches([]);
-                return;
-            }
+            if (error) throw error;
 
-            const matchIds = mutualLikes.map(l => l.swiper_id);
-
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('*')
-                .in('id', matchIds);
-
-            setMatches(profiles || []);
+            // 3. Format data
+            const formattedMatches = mutualSwipes.map(item => item.profiles);
+            setMatches(formattedMatches || []);
 
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching matches:', error);
+            Alert.alert('Erro', 'Não foi possível carregar seus matches.');
         } finally {
             setLoading(false);
         }
+    };
+
+    useEffect(() => {
+        if (selectedMatch) {
+            fetchMatchDetails(selectedMatch.id);
+        }
+    }, [selectedMatch]);
+
+    const fetchMatchDetails = async (userId: string) => {
+        // Fetch Ratings
+        const { data: ratingData } = await supabase
+            .from('user_rating_averages')
+            .select('*')
+            .eq('rated_id', userId)
+            .single();
+        setMatchRating(ratingData);
+
+        // Fetch Games
+        const { data: gamesData } = await supabase
+            .from('user_favorites')
+            .select('*')
+            .eq('user_id', userId);
+        setMatchGames(gamesData || []);
     };
 
     const copyToClipboard = async (text: string, label: string) => {
@@ -88,6 +113,9 @@ export default function MatchesScreen() {
         </TouchableOpacity>
     );
 
+    const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    const PERIODS = ['Manhã', 'Tarde', 'Noite'];
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -109,78 +137,15 @@ export default function MatchesScreen() {
             )}
 
             {/* Match Details Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
+            <ProfileModal
                 visible={!!selectedMatch}
-                onRequestClose={() => setSelectedMatch(null)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Conectar-se</Text>
-                            <TouchableOpacity onPress={() => setSelectedMatch(null)}>
-                                <Ionicons name="close" size={24} color={theme.colors.text} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.profileSummary}>
-                            <Image
-                                source={{ uri: (selectedMatch?.photos && selectedMatch.photos.length > 0) ? selectedMatch.photos[0] : (selectedMatch?.avatar_url || 'https://via.placeholder.com/100') }}
-                                style={styles.modalAvatar}
-                            />
-                            <Text style={styles.modalUsername}>{selectedMatch?.username}</Text>
-                        </View>
-
-                        <Text style={styles.sectionTitle}>IDs de Plataforma</Text>
-                        <View style={styles.idsContainer}>
-                            {selectedMatch?.discord_handle ? (
-                                <TouchableOpacity style={styles.idRow} onPress={() => copyToClipboard(selectedMatch.discord_handle, 'Discord')}>
-                                    <Ionicons name="logo-discord" size={24} color="#5865F2" />
-                                    <Text style={styles.idText}>{selectedMatch.discord_handle}</Text>
-                                    <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
-                                </TouchableOpacity>
-                            ) : null}
-
-                            {selectedMatch?.psn_handle ? (
-                                <TouchableOpacity style={styles.idRow} onPress={() => copyToClipboard(selectedMatch.psn_handle, 'PSN')}>
-                                    <Ionicons name="logo-playstation" size={24} color="#003087" />
-                                    <Text style={styles.idText}>{selectedMatch.psn_handle}</Text>
-                                    <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
-                                </TouchableOpacity>
-                            ) : null}
-
-                            {selectedMatch?.xbox_handle ? (
-                                <TouchableOpacity style={styles.idRow} onPress={() => copyToClipboard(selectedMatch.xbox_handle, 'Xbox')}>
-                                    <Ionicons name="logo-xbox" size={24} color="#107C10" />
-                                    <Text style={styles.idText}>{selectedMatch.xbox_handle}</Text>
-                                    <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
-                                </TouchableOpacity>
-                            ) : null}
-
-                            {selectedMatch?.steam_handle ? (
-                                <TouchableOpacity style={styles.idRow} onPress={() => copyToClipboard(selectedMatch.steam_handle, 'Steam')}>
-                                    <Ionicons name="logo-steam" size={24} color="#1b2838" />
-                                    <Text style={styles.idText}>{selectedMatch.steam_handle}</Text>
-                                    <Ionicons name="copy-outline" size={20} color={theme.colors.textSecondary} />
-                                </TouchableOpacity>
-                            ) : null}
-
-                            {!selectedMatch?.discord_handle && !selectedMatch?.psn_handle && !selectedMatch?.xbox_handle && !selectedMatch?.steam_handle && (
-                                <Text style={styles.emptyText}>Este usuário não cadastrou IDs de plataforma.</Text>
-                            )}
-
-                            <TouchableOpacity
-                                style={styles.rateButton}
-                                onPress={() => setRatingModalVisible(true)}
-                            >
-                                <Ionicons name="star" size={20} color="#FFF" />
-                                <Text style={styles.rateButtonText}>Avaliar Jogador</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+                onClose={() => setSelectedMatch(null)}
+                profile={selectedMatch}
+                reputation={matchRating}
+                games={matchGames}
+                isMatch={true}
+                onRatePress={() => setRatingModalVisible(true)}
+            />
 
             {selectedMatch && (
                 <RatingModal
@@ -245,57 +210,159 @@ const styles = StyleSheet.create({
         color: theme.colors.textSecondary,
         textAlign: 'center',
         marginTop: 40,
-        fontSize: 16,
+        fontSize: 14,
     },
     // Modal
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'rgba(0,0,0,0.9)',
         justifyContent: 'flex-end',
     },
     modalContent: {
         backgroundColor: theme.colors.surface,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        padding: theme.spacing.xl,
-        minHeight: '60%',
+        paddingTop: theme.spacing.lg,
+        height: '90%', // Almost full screen
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: theme.spacing.lg,
+        paddingHorizontal: theme.spacing.lg,
+        marginBottom: 8,
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 28,
         fontWeight: 'bold',
         color: theme.colors.text,
     },
-    profileSummary: {
-        alignItems: 'center',
-        marginBottom: theme.spacing.xl,
+    modalSubtitle: {
+        color: theme.colors.textSecondary,
+        fontSize: 14,
+        paddingHorizontal: theme.spacing.lg,
+        marginBottom: 16,
     },
-    modalAvatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        marginBottom: theme.spacing.sm,
+    carousel: {
+        height: 300,
+        marginBottom: 16,
     },
-    modalUsername: {
-        fontSize: 24,
-        fontWeight: 'bold',
+    carouselImage: {
+        width: 400, // Roughly full width
+        height: 300,
+    },
+    infoSection: {
+        paddingHorizontal: theme.spacing.lg,
+        paddingBottom: 40,
+    },
+    bioText: {
+        fontSize: 16,
         color: theme.colors.text,
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    sectionContainer: {
+        marginBottom: 20,
+        backgroundColor: theme.colors.background,
+        padding: 12,
+        borderRadius: 12,
     },
     sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: 'bold',
         color: theme.colors.textSecondary,
-        marginBottom: theme.spacing.md,
+        marginBottom: 12,
         textTransform: 'uppercase',
     },
+    reputationGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    repItem: {
+        alignItems: 'center',
+    },
+    repLabel: {
+        fontSize: 11,
+        color: theme.colors.textSecondary,
+        marginBottom: 4,
+    },
+    repValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: theme.colors.primary,
+    },
+    // Shared Styles
+    gameItem: {
+        width: 60,
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    gameIcon: {
+        width: 50,
+        height: 50,
+        borderRadius: 12,
+        marginBottom: 4,
+        backgroundColor: theme.colors.surface,
+    },
+    gameName: {
+        color: theme.colors.text,
+        fontSize: 10,
+        textAlign: 'center',
+        fontWeight: 'bold',
+    },
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    chip: {
+        backgroundColor: theme.colors.secondary,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    chipText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: 10,
+    },
+    scheduleGrid: {
+        backgroundColor: theme.colors.background,
+        padding: 8,
+        borderRadius: 12,
+    },
+    scheduleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    scheduleCell: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scheduleHeader: {
+        color: theme.colors.textSecondary,
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    dayLabel: {
+        color: theme.colors.text,
+        fontWeight: 'bold',
+        fontSize: 11,
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: theme.colors.border,
+    },
+    dotActive: {
+        backgroundColor: theme.colors.primary,
+    },
+    // Platforms
     idsContainer: {
         gap: theme.spacing.md,
-        paddingBottom: 40,
     },
     idRow: {
         flexDirection: 'row',

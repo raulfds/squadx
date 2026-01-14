@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FilterModal from '../../src/components/FilterModal';
 import { supabase } from '../../src/lib/supabase';
@@ -15,6 +15,7 @@ const { width } = Dimensions.get('window');
 export default function ExploreScreen() {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [currentProfileIndex, setCurrentProfileIndex] = useState(0);
   const [matchModalVisible, setMatchModalVisible] = useState(false);
   const [matchedProfile, setMatchedProfile] = useState<any>(null);
@@ -31,19 +32,29 @@ export default function ExploreScreen() {
     fetchProfiles();
   }, [filters]);
 
+  const [currentGames, setCurrentGames] = useState<any[]>([]);
+
   useEffect(() => {
     if (profiles[currentProfileIndex]) {
-      fetchRating(profiles[currentProfileIndex].id);
+      fetchProfileDetails(profiles[currentProfileIndex].id);
     }
   }, [currentProfileIndex, profiles]);
 
-  const fetchRating = async (userId: string) => {
-    const { data } = await supabase
+  const fetchProfileDetails = async (userId: string) => {
+    // Fetch Ratings
+    const { data: ratingData } = await supabase
       .from('user_rating_averages')
       .select('*')
       .eq('rated_id', userId)
       .single();
-    setCurrentRating(data);
+    setCurrentRating(ratingData);
+
+    // Fetch Games
+    const { data: gamesData } = await supabase
+      .from('user_favorites')
+      .select('*')
+      .eq('user_id', userId);
+    setCurrentGames(gamesData || []);
   };
 
   const fetchProfiles = async () => {
@@ -122,7 +133,6 @@ export default function ExploreScreen() {
 
       if (error) {
         console.error('Swipe Error', error);
-        // Ideally revert optimistic update here if critical
       }
 
       // Check for Match if it was a Like
@@ -165,49 +175,153 @@ export default function ExploreScreen() {
       );
     }
 
+    const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    const PERIODS = ['Manhã', 'Tarde', 'Noite'];
+
     return (
       <View style={styles.card}>
-        <Image
-          source={{ uri: profile.avatar_url || 'https://via.placeholder.com/400x500' }}
-          style={styles.cardImage}
-          contentFit="cover"
-        />
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setProfileModalVisible(true)} style={{ width: '100%', height: '65%', position: 'relative' }}>
+          <Image
+            source={{ uri: (profile.photos && profile.photos.length > 0) ? profile.photos[0] : (profile.avatar_url || 'https://via.placeholder.com/400x500') }}
+            style={{ width: '100%', height: '100%', backgroundColor: '#333' }}
+            contentFit="cover"
+          />
+          {/* Rating Badge on Photo */}
+          <View style={styles.photoRatingBadge}>
+            <Ionicons name="star" size={12} color="#000" />
+            <Text style={styles.photoRatingText}>
+              {currentRating
+                ? ((currentRating.avg_respect + currentRating.avg_communication + currentRating.avg_humor + currentRating.avg_collaboration) / 4).toFixed(1)
+                : 'Novo'
+              }
+            </Text>
+          </View>
+        </TouchableOpacity>
 
-        <View style={styles.cardInfo}>
-          <View style={styles.nameRow}>
-            <Text style={styles.cardName}>{profile.username}</Text>
-            {!!currentRating && (
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={14} color="#000" />
-                <Text style={styles.ratingText}>
-                  {((currentRating.avg_respect + currentRating.avg_communication + currentRating.avg_humor + currentRating.avg_collaboration) / 4).toFixed(1)}
+        <ScrollView style={styles.cardInfo} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
+          {/* Scroll Hint */}
+          <View style={styles.scrollHintContainer}>
+            <Ionicons name="chevron-up" size={20} color={theme.colors.textSecondary} />
+            <Text style={styles.scrollHintText}>Detalhes</Text>
+          </View>
+          {/* Header: Name, Age */}
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.cardName}>{profile.username}</Text>
+              {profile.birth_date && (
+                <Text style={styles.cardAge}>
+                  {new Date().getFullYear() - new Date(profile.birth_date).getFullYear()} anos
                 </Text>
-              </View>
-            )}
+              )}
+            </View>
           </View>
 
           {(profile.city && profile.state) && (
-            <Text style={styles.cardLocation}>{profile.city} - {profile.state}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
+              <Text style={styles.cardLocation}>{profile.city} - {profile.state}</Text>
+            </View>
           )}
 
+          {/* Bio */}
+          {profile.bio && (
+            <Text style={styles.cardBio}>{profile.bio}</Text>
+          )}
+
+          {/* Reputation Detail */}
           {!!currentRating && (
-            <View style={styles.attributesRow}>
-              <View style={styles.attributeTag}>
-                <Text style={styles.attributeLabel}>🤝 {currentRating.avg_respect || '-'}</Text>
-              </View>
-              <View style={styles.attributeTag}>
-                <Text style={styles.attributeLabel}>🗣️ {currentRating.avg_communication || '-'}</Text>
-              </View>
-              <View style={styles.attributeTag}>
-                <Text style={styles.attributeLabel}>😂 {currentRating.avg_humor || '-'}</Text>
-              </View>
-              <View style={styles.attributeTag}>
-                <Text style={styles.attributeLabel}>🧠 {currentRating.avg_collaboration || '-'}</Text>
+            <View style={styles.reputationSection}>
+              <Text style={styles.sectionTitle}>Reputação</Text>
+              <View style={styles.reputationGrid}>
+                <View style={styles.repItem}>
+                  <Text style={styles.repLabel}>🤝 Respeito</Text>
+                  <Text style={styles.repValue}>{currentRating.avg_respect}</Text>
+                </View>
+                <View style={styles.repItem}>
+                  <Text style={styles.repLabel}>🗣️ Comum.</Text>
+                  <Text style={styles.repValue}>{currentRating.avg_communication}</Text>
+                </View>
+                <View style={styles.repItem}>
+                  <Text style={styles.repLabel}>😂 Humor</Text>
+                  <Text style={styles.repValue}>{currentRating.avg_humor}</Text>
+                </View>
+                <View style={styles.repItem}>
+                  <Text style={styles.repLabel}>🧠 Colab.</Text>
+                  <Text style={styles.repValue}>{currentRating.avg_collaboration}</Text>
+                </View>
               </View>
             </View>
           )}
-          <Text style={styles.cardBio} numberOfLines={3}>{profile.bio || 'Sem bio...'}</Text>
-        </View>
+
+          {/* Games */}
+          {(currentGames.length > 0 || (profile.game_genres && profile.game_genres.length > 0)) && (
+            <View style={styles.gamesSection}>
+              <Text style={styles.sectionTitle}>Jogos & Categorias</Text>
+
+              {/* Games Icons */}
+              {currentGames.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 8 }}>
+                  {currentGames.map((g: any) => (
+                    <View key={g.game_id || g.id} style={styles.gameItem}>
+                      {g.game_cover_url ? (
+                        <Image source={{ uri: g.game_cover_url }} style={styles.gameIcon} />
+                      ) : (
+                        <View style={[styles.gameIcon, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
+                          <Ionicons name="game-controller" size={20} color="#666" />
+                        </View>
+                      )}
+                      <Text style={styles.gameName} numberOfLines={1}>{g.game_name || g.name}</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* Genre Chips */}
+              {profile.game_genres && profile.game_genres.length > 0 && (
+                <View style={styles.chipRow}>
+                  {profile.game_genres.map((g: string) => (
+                    <View key={g} style={styles.chip}>
+                      <Text style={styles.chipText}>{g}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Availability Grid (Read Only) */}
+          <View style={styles.availabilitySection}>
+            <Text style={styles.sectionTitle}>Disponibilidade</Text>
+            <View style={styles.scheduleGrid}>
+              {/* Header */}
+              <View style={styles.scheduleRow}>
+                <View style={[styles.scheduleCell, { flex: 1.5 }]} />
+                {PERIODS.map(p => (
+                  <View key={p} style={styles.scheduleCell}>
+                    <Text style={styles.scheduleHeader}>{p[0]}</Text>
+                  </View>
+                ))}
+              </View>
+              {/* Days */}
+              {DAYS.map(day => (
+                <View key={day} style={styles.scheduleRow}>
+                  <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start' }]}>
+                    <Text style={styles.dayLabel}>{day.slice(0, 3)}</Text>
+                  </View>
+                  {PERIODS.map(period => {
+                    const isAvailable = profile.availability?.[day]?.includes(period);
+                    return (
+                      <View key={`${day}-${period}`} style={styles.scheduleCell}>
+                        <View style={[styles.dot, isAvailable && styles.dotActive]} />
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          </View>
+
+        </ScrollView>
       </View>
     );
   };
@@ -326,38 +440,43 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    padding: 8,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+  },
+  overlayText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scrollHintContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  scrollHintText: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginTop: -4,
   },
   card: {
-    width: width * 0.9,
-    height: '80%',
+    width: width * 0.95,
+    height: '85%',
     backgroundColor: theme.colors.surface,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  cardImage: {
-    width: '100%',
-    height: '70%',
-    backgroundColor: '#333',
-  },
-  cardInfo: {
-    padding: theme.spacing.md,
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  ratingBadge: {
+  photoRatingBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.secondary,
@@ -365,45 +484,183 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+    zIndex: 10,
+  },
+  photoRatingText: {
+    fontWeight: 'bold',
+    color: '#000',
+    fontSize: 12,
+  },
+  // cardImage style removed from here as it is inline now or can be redefined if needed for cleanliness
+  cardInfo: {
+    flex: 1,
+    padding: theme.spacing.md,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  nameRow: {
+    // Deprecated in new layout but handled above
+  },
+  cardName: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  cardAge: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.secondary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
   },
   ratingText: {
     fontWeight: 'bold',
     color: '#000',
-    fontSize: 14,
+    fontSize: 16,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
   },
   cardLocation: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.md,
-  },
-  attributesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: theme.spacing.md,
-  },
-  attributeTag: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  attributeLabel: {
-    fontSize: 12,
-    color: theme.colors.text,
   },
   cardBio: {
     fontSize: 16,
-    color: theme.colors.textSecondary,
+    color: theme.colors.text,
     lineHeight: 22,
+    marginBottom: 16,
   },
+  /* Reputation */
+  reputationSection: {
+    marginBottom: 16,
+    backgroundColor: theme.colors.background,
+    padding: 12,
+    borderRadius: 12,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  reputationGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  repItem: {
+    alignItems: 'center',
+  },
+  repLabel: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginBottom: 4,
+  },
+  repValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  /* Games */
+  gamesSection: {
+    marginBottom: 16,
+  },
+  gameItem: {
+    width: 60,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  gameIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    marginBottom: 4,
+    backgroundColor: theme.colors.background,
+  },
+  gameName: {
+    color: theme.colors.text,
+    fontSize: 10,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  chip: {
+    backgroundColor: theme.colors.secondary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  chipText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 10,
+  },
+  /* Availability */
+  availabilitySection: {
+    marginBottom: 16,
+  },
+  scheduleGrid: {
+    backgroundColor: theme.colors.background,
+    padding: 8,
+    borderRadius: 12,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  scheduleCell: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scheduleHeader: {
+    color: theme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  dayLabel: {
+    color: theme.colors.text,
+    fontWeight: 'bold',
+    fontSize: 11,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.border,
+  },
+  dotActive: {
+    backgroundColor: theme.colors.primary,
+  },
+
+  /* Actions */
   actionsContainer: {
+    position: 'absolute',
+    bottom: 30, // Floats over provided space
+    alignSelf: 'center',
     flexDirection: 'row',
     justifyContent: 'space-evenly',
-    paddingBottom: theme.spacing.xl,
-    width: '100%',
+    width: '80%',
   },
   actionButton: {
     width: 64,
@@ -421,10 +678,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   passButton: {
-
+    // defaults
   },
   likeButton: {
     borderColor: theme.colors.secondary,
+    backgroundColor: '#1E1E1E',
   },
   emptyText: {
     color: theme.colors.textSecondary,
@@ -442,7 +700,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
   },
-  // Modal
+  // Modal... (existing modal styles below)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.8)',

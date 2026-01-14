@@ -175,9 +175,7 @@ export default function ProfileScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Meu Perfil</Text>
-                <TouchableOpacity onPress={handleSignOut}>
-                    <Ionicons name="log-out-outline" size={24} color={theme.colors.text} />
-                </TouchableOpacity>
+                <View style={{ height: 40 }} />
             </View>
 
             <ScrollView
@@ -381,7 +379,7 @@ export default function ProfileScreen() {
                                 {PERIODS.map(period => {
                                     const isSelected = profile?.availability?.[day]?.includes(period);
                                     return (
-                                        <View key={`${day}-${period}`} style={styles.scheduleCell}>
+                                        <View key={`${day} -${period} `} style={styles.scheduleCell}>
                                             <TouchableOpacity
                                                 style={[styles.periodButton, isSelected && styles.periodButtonSelected]}
                                                 onPress={() => toggleAvailability(day, period)}
@@ -451,23 +449,8 @@ export default function ProfileScreen() {
                     <Text style={[styles.editButtonText, { color: theme.colors.error }]}>Sair da Conta</Text>
                 </TouchableOpacity>
 
-                {/* Edit Modal (Copied/Reused Logic if separate component, or inline if simpler. 
-                   Actually, looking at previous code, EditProfileModal was separate. 
-                   I should ensure I didn't delete the modal related logic or imports if they were used. 
-                   Wait, the previous file didn't import EditProfileModal, it had 'openEdit' logic but I don't see the Modal rendered in the JSX I replaced?
-                   Ah, I might have missed referencing the Modal in the return.
-                   Let's check the previous file content again.
-                   The previous file had `editModalVisible` state but I don't see `<EditProfileModal />` or similar in the JSX.
-                   The user said "Granular editing was implemented... using an EditProfileModal".
-                   Let's check if I missed it in the previous `view_file` or if it's there.
-                   Ah, I see `handleSaveField` and `openEdit` but I don't see the Modal component JSX itself in the `profile.tsx` viewer.
-                   Maybe I missed it in scrolling? Or it was missing?
-                   Let's check `EditProfileModal.tsx` existence.
-                   The user said "EditProfileModal (Added)".
-                   If I replace the whole file content, I must ensure I include the Modal rendering at the end of the return.
-                   Since I can't see it in the previous layout (maybe I missed it or it wasn't there in the lines I saw), I should PROBABLY ADD IT.
-                   I'll import it.
-                */}
+                <View style={{ height: 50 }} />
+
             </ScrollView>
 
             <EditProfileModal
@@ -482,6 +465,7 @@ export default function ProfileScreen() {
         </View>
     );
 }
+
 
 // ... Styles (I need to ensure I import EditProfileModal)
 
