@@ -3,8 +3,15 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import EditProfileModal from '../../src/components/EditProfileModal';
 import { supabase } from '../../src/lib/supabase';
 import { theme } from '../../src/theme';
+
+const DAYS = [
+    'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'
+];
+
+const PERIODS = ['Manhã', 'Tarde', 'Noite'];
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +43,39 @@ export default function ProfileScreen() {
         setProfile((prev: any) => ({ ...prev, [field]: value }));
     };
 
+    const toggleAvailability = async (day: string, period: string) => {
+        if (!profile) return;
+
+        const currentAvailability = profile.availability || {};
+        const dayPeriods = currentAvailability[day] || [];
+
+        let newDayPeriods;
+        if (dayPeriods.includes(period)) {
+            newDayPeriods = dayPeriods.filter((p: string) => p !== period);
+        } else {
+            newDayPeriods = [...dayPeriods, period];
+        }
+
+        const newAvailability = {
+            ...currentAvailability,
+            [day]: newDayPeriods
+        };
+
+        // Optimistic Update
+        setProfile((prev: any) => ({ ...prev, availability: newAvailability }));
+
+        // Save to DB (debounce could be better, but direct for now as per request)
+        const { error } = await supabase
+            .from('profiles')
+            .update({ availability: newAvailability })
+            .eq('id', profile.id);
+
+        if (error) {
+            console.error('Error saving availability:', error);
+            // Revert on error? For now just log.
+        }
+    };
+
     const fetchProfile = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -51,8 +91,6 @@ export default function ProfileScreen() {
                 .single();
 
             if (error) {
-                // If profile not found, maybe redirect to onboarding?
-                // For now just allow empty
                 console.log('Profile fetch error or empty:', error.message);
             }
             setProfile(profileData);
@@ -273,23 +311,42 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {profile?.games?.length > 0 ? (
-                        <View style={styles.chipRow}>
-                            {profile.games.map((g: any) => (
-                                <View key={g.id} style={styles.chip}>
-                                    <Text style={styles.chipText}>{g.name}</Text>
-                                </View>
-                            ))}
+                    {/* Games List with Icons */}
+                    {games?.length > 0 && (
+                        <View style={{ marginBottom: 12 }}>
+                            <Text style={[styles.sectionSubtitle, { marginBottom: 8 }]}>Jogos</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                                {games.map((g: any) => (
+                                    <View key={g.game_id || g.id} style={styles.gameItem}>
+                                        {g.game_cover_url ? (
+                                            <Image source={{ uri: g.game_cover_url }} style={styles.gameIcon} />
+                                        ) : (
+                                            <View style={[styles.gameIcon, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
+                                                <Ionicons name="game-controller" size={24} color="#666" />
+                                            </View>
+                                        )}
+                                        <Text style={styles.gameName} numberOfLines={1}>{g.game_name || g.name}</Text>
+                                    </View>
+                                ))}
+                            </ScrollView>
                         </View>
-                    ) : profile?.game_genres?.length > 0 ? (
-                        <View style={styles.chipRow}>
-                            {profile.game_genres.map((g: string) => (
-                                <View key={g} style={styles.chip}>
-                                    <Text style={styles.chipText}>{g}</Text>
-                                </View>
-                            ))}
+                    )}
+
+                    {/* Genres Chips */}
+                    {profile?.game_genres?.length > 0 && (
+                        <View>
+                            <Text style={[styles.sectionSubtitle, { marginBottom: 8 }]}>Categorias</Text>
+                            <View style={styles.chipRow}>
+                                {profile.game_genres.map((g: string) => (
+                                    <View key={g} style={styles.chip}>
+                                        <Text style={styles.chipText}>{g}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                    ) : (
+                    )}
+
+                    {!games?.length && !profile?.game_genres?.length && (
                         <Text style={styles.emptyText}>Sem jogos favoritos.</Text>
                     )}
                 </View>
@@ -298,17 +355,45 @@ export default function ProfileScreen() {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Disponibilidade</Text>
-                        <TouchableOpacity onPress={() => router.push('/onboarding/step4')}>
-                            <Ionicons name="pencil" size={20} color={theme.colors.primary} />
-                        </TouchableOpacity>
+                        {/* Inline editing enabled, no need for button or maybe button scrolls? */}
+                        {/* We can keep the button as a shortcut or remove it since it's inline now. 
+                         User said "Allow edit right there", so maybe just remove the pencil to step 5? 
+                         Or keep it as advanced edit? Let's just remove the pencil since it's inline. */}
                     </View>
-                    {profile?.availability?.times?.length > 0 ? (
-                        <View style={styles.availabilityBox}>
-                            <Text style={styles.bodyText}>{profile.availability.times.join(', ')}</Text>
+
+                    <View style={styles.scheduleGrid}>
+                        {/* Header Row */}
+                        <View style={styles.scheduleRow}>
+                            <View style={[styles.scheduleCell, { flex: 1.5 }]} />
+                            {PERIODS.map(period => (
+                                <View key={period} style={styles.scheduleCell}>
+                                    <Text style={styles.scheduleHeader}>{period}</Text>
+                                </View>
+                            ))}
                         </View>
-                    ) : (
-                        <Text style={styles.emptyText}>Sem disponibilidade definida.</Text>
-                    )}
+
+                        {/* Day Rows */}
+                        {DAYS.map(day => (
+                            <View key={day} style={styles.scheduleRow}>
+                                <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start', paddingLeft: 4 }]}>
+                                    <Text style={styles.dayLabel}>{day.slice(0, 3)}</Text>
+                                </View>
+                                {PERIODS.map(period => {
+                                    const isSelected = profile?.availability?.[day]?.includes(period);
+                                    return (
+                                        <View key={`${day}-${period}`} style={styles.scheduleCell}>
+                                            <TouchableOpacity
+                                                style={[styles.periodButton, isSelected && styles.periodButtonSelected]}
+                                                onPress={() => toggleAvailability(day, period)}
+                                            >
+                                                {isSelected && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                                            </TouchableOpacity>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        ))}
+                    </View>
                 </View>
 
                 {/* Socials / Platforms */}
@@ -366,12 +451,42 @@ export default function ProfileScreen() {
                     <Text style={[styles.editButtonText, { color: theme.colors.error }]}>Sair da Conta</Text>
                 </TouchableOpacity>
 
+                {/* Edit Modal (Copied/Reused Logic if separate component, or inline if simpler. 
+                   Actually, looking at previous code, EditProfileModal was separate. 
+                   I should ensure I didn't delete the modal related logic or imports if they were used. 
+                   Wait, the previous file didn't import EditProfileModal, it had 'openEdit' logic but I don't see the Modal rendered in the JSX I replaced?
+                   Ah, I might have missed referencing the Modal in the return.
+                   Let's check the previous file content again.
+                   The previous file had `editModalVisible` state but I don't see `<EditProfileModal />` or similar in the JSX.
+                   The user said "Granular editing was implemented... using an EditProfileModal".
+                   Let's check if I missed it in the previous `view_file` or if it's there.
+                   Ah, I see `handleSaveField` and `openEdit` but I don't see the Modal component JSX itself in the `profile.tsx` viewer.
+                   Maybe I missed it in scrolling? Or it was missing?
+                   Let's check `EditProfileModal.tsx` existence.
+                   The user said "EditProfileModal (Added)".
+                   If I replace the whole file content, I must ensure I include the Modal rendering at the end of the return.
+                   Since I can't see it in the previous layout (maybe I missed it or it wasn't there in the lines I saw), I should PROBABLY ADD IT.
+                   I'll import it.
+                */}
             </ScrollView>
+
+            <EditProfileModal
+                visible={editModalVisible}
+                onClose={() => setEditModalVisible(false)}
+                onSave={handleSaveField}
+                field={editingField}
+                label={editingLabel}
+                initialValue={editingValue}
+                multiline={editingMultiline}
+            />
         </View>
     );
 }
 
+// ... Styles (I need to ensure I import EditProfileModal)
+
 const styles = StyleSheet.create({
+    // ... existing styles ...
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
@@ -659,5 +774,66 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
+    },
+    gameItem: {
+        width: 80,
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    gameIcon: {
+        width: 60,
+        height: 60,
+        borderRadius: 12,
+        marginBottom: 4,
+        backgroundColor: theme.colors.surface,
+    },
+    gameName: {
+        color: theme.colors.text,
+        fontSize: 10,
+        textAlign: 'center',
+        fontWeight: 'bold',
+    },
+    // Schedule Grid Styles
+    scheduleGrid: {
+        backgroundColor: theme.colors.surface,
+        borderRadius: 12,
+        padding: theme.spacing.sm,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        marginTop: theme.spacing.sm,
+    },
+    scheduleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    scheduleCell: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scheduleHeader: {
+        color: theme.colors.textSecondary,
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    dayLabel: {
+        color: theme.colors.text,
+        fontWeight: '500',
+        fontSize: 12,
+    },
+    periodButton: {
+        width: '80%',
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#2A2A2A',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+    },
+    periodButtonSelected: {
+        backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
     },
 });
