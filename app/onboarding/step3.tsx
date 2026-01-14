@@ -3,7 +3,8 @@ import { theme } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep3() {
     const { updateData, data } = useOnboarding();
@@ -20,7 +21,7 @@ export default function OnboardingStep3() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -106,6 +107,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: theme.spacing.lg,
+        paddingBottom: 100,
     },
     header: {
         marginBottom: theme.spacing.xl,

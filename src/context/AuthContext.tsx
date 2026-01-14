@@ -24,7 +24,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         const fetchSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) {
+                console.log('Error fetching session:', error.message);
+                if (error.message.includes('Refresh Token')) {
+                    // Token inválido, forçar logout para limpar estado
+                    await supabase.auth.signOut();
+                }
+            }
             setSession(session);
             setLoading(false);
         };

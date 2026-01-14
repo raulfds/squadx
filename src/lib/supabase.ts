@@ -1,9 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
-import * as SecureStore from 'expo-secure-store'
-import { AppState } from 'react-native'
-import 'react-native-url-polyfill/auto'
+import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
+import { AppState, LogBox, Platform } from 'react-native';
 
-import { Platform } from 'react-native'
+// Suppress known non-critical errors
+LogBox.ignoreLogs(['AuthApiError: Invalid Refresh Token']);
+
 
 const ExpoSecureStoreAdapter = {
     getItem: (key: string) => {

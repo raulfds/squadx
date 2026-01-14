@@ -41,7 +41,8 @@ export default function Index() {
                     if (profile) {
                         router.replace('/(tabs)/explore');
                     } else {
-                        router.replace('/profile/setup');
+                        // User exists but has no profile data -> Go to Onboarding
+                        router.replace('/onboarding/step1');
                     }
                 } else {
                     console.log('[Index] No session, redirecting to Login');

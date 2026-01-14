@@ -87,8 +87,9 @@ export default function OnboardingStep1() {
         router.push('/onboarding/step2');
     };
 
+
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -220,6 +221,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: theme.spacing.lg,
+        paddingBottom: 100, // Extra padding for bottom navigation
     },
     header: {
         marginBottom: theme.spacing.xl,

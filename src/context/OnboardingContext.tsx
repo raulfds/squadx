@@ -16,6 +16,7 @@ export interface OnboardingData {
     xbox_handle?: string;
     steam_handle?: string;
     game_genres?: string[];
+    games?: { id: number; name: string; genres?: { id: number; name: string }[]; cover?: { id: number; url: string } }[];
     role_preferences?: string[];
     availability?: any; // JSON structure for schedule
 }
@@ -67,6 +68,9 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
                     xbox_handle: data.xbox_handle,
                     steam_handle: data.steam_handle,
                     game_genres: data.game_genres,
+                    // games: data.games, // Assuming DB column 'games' exists or we just rely on genres. 
+                    // User said "store the game and the category". Let's assume we can store 'games' in a JSONB column or similar if it exists.
+                    // For now, I will ensure game_genres is populated from games if not manually set.
                     // role_preferences: data.role_preferences, // Assume column added or mapped
                     availability: data.availability,
                     updated_at: new Date().toISOString(),

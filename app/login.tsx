@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialButton } from '../src/components/SocialButton';
 import { supabase } from '../src/lib/supabase';
 import { theme } from '../src/theme';
@@ -31,7 +32,24 @@ export default function LoginScreen() {
                     email,
                     password,
                 });
-                if (error) throw error;
+
+                if (error) {
+                    if (error.message.includes('Invalid login credentials') || error.message.includes('User not found')) {
+                        Alert.alert(
+                            'Conta não encontrada',
+                            'Este e-mail ainda não possui cadastro. Deseja criar uma conta agora?',
+                            [
+                                { text: 'Cancelar', style: 'cancel' },
+                                {
+                                    text: 'Criar Conta',
+                                    onPress: () => setIsSignUp(true)
+                                }
+                            ]
+                        );
+                        return;
+                    }
+                    throw error;
+                }
             }
         } catch (error: any) {
             Alert.alert('Erro', error.message);
@@ -89,80 +107,83 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.logoContainer}>
-                <Image
-                    source={require('../assets/images/squadx-logo.png')}
-                    style={styles.logo}
-                    contentFit="contain"
-                />
+
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            <View style={styles.content}>
+                <View style={styles.logoContainer}>
+                    <Image
+                        source={require('../assets/images/squadx-logo.png')}
+                        style={styles.logo}
+                        contentFit="contain"
+                    />
+                </View>
+
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                        style={[styles.tab, !isSignUp && styles.activeTab]}
+                        onPress={() => setIsSignUp(false)}
+                    >
+                        <Text style={[styles.tabText, !isSignUp && styles.activeTabText]}>Entrar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tab, isSignUp && styles.activeTab]}
+                        onPress={() => setIsSignUp(true)}
+                    >
+                        <Text style={[styles.tabText, isSignUp && styles.activeTabText]}>Cadastrar</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.formContainer}>
+                    <Text style={styles.formTitle}>
+                        {isSignUp ? 'Criar conta' : 'Bem-vindo de volta!'}
+                    </Text>
+
+                    <TextInput
+                        style={styles.input}
+                        placeholder="E-mail"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        value={email}
+                        onChangeText={setEmail}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                    />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Senha"
+                        placeholderTextColor={theme.colors.textSecondary}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                    />
+
+                    <TouchableOpacity
+                        style={styles.authButton}
+                        onPress={handleEmailAuth}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#FFF" />
+                        ) : (
+                            <Text style={styles.authButtonText}>
+                                {isSignUp ? 'Continuar' : 'Entrar'}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.dividerContainer}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OU</Text>
+                    <View style={styles.dividerLine} />
+                </View>
+
+                <View style={styles.buttonsContainer}>
+                    <SocialButton provider="google" onPress={() => handleLogin('google')} isLoading={loading} />
+                    <SocialButton provider="discord" onPress={() => handleLogin('discord')} isLoading={loading} />
+                    <SocialButton provider="twitch" onPress={() => handleLogin('twitch')} isLoading={loading} />
+                </View>
             </View>
-
-            <View style={styles.tabContainer}>
-                <TouchableOpacity
-                    style={[styles.tab, !isSignUp && styles.activeTab]}
-                    onPress={() => setIsSignUp(false)}
-                >
-                    <Text style={[styles.tabText, !isSignUp && styles.activeTabText]}>Entrar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tab, isSignUp && styles.activeTab]}
-                    onPress={() => setIsSignUp(true)}
-                >
-                    <Text style={[styles.tabText, isSignUp && styles.activeTabText]}>Cadastrar</Text>
-                </TouchableOpacity>
-            </View>
-
-            <View style={styles.formContainer}>
-                <Text style={styles.formTitle}>
-                    {isSignUp ? 'Crie sua conta para começar' : 'Bem-vindo de volta!'}
-                </Text>
-
-                <TextInput
-                    style={styles.input}
-                    placeholder="E-mail"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Senha"
-                    placeholderTextColor={theme.colors.textSecondary}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                />
-
-                <TouchableOpacity
-                    style={styles.authButton}
-                    onPress={handleEmailAuth}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#FFF" />
-                    ) : (
-                        <Text style={styles.authButtonText}>
-                            {isSignUp ? 'Continuar para o Cadastro' : 'Entrar'}
-                        </Text>
-                    )}
-                </TouchableOpacity>
-            </View>
-
-            <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OU</Text>
-                <View style={styles.dividerLine} />
-            </View>
-
-            <View style={styles.buttonsContainer}>
-                <SocialButton provider="google" onPress={() => handleLogin('google')} isLoading={loading} />
-                <SocialButton provider="discord" onPress={() => handleLogin('discord')} isLoading={loading} />
-                <SocialButton provider="twitch" onPress={() => handleLogin('twitch')} isLoading={loading} />
-            </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -170,31 +191,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
+    },
+    content: {
+        flex: 1,
         justifyContent: 'center',
         padding: theme.spacing.lg,
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: theme.spacing.lg,
+        marginBottom: theme.spacing.md,
     },
     logo: {
-        width: 250,
-        height: 250,
-        marginBottom: theme.spacing.md,
+        width: 150,
+        height: 150,
+        marginBottom: 0,
     },
     buttonsContainer: {
         width: '100%',
     },
     tabContainer: {
         flexDirection: 'row',
-        marginBottom: theme.spacing.lg,
+        marginBottom: theme.spacing.md,
         backgroundColor: theme.colors.surface,
         borderRadius: 12,
         padding: 4,
     },
     tab: {
         flex: 1,
-        paddingVertical: 12,
+        paddingVertical: 10,
         alignItems: 'center',
         borderRadius: 10,
     },
@@ -204,7 +228,7 @@ const styles = StyleSheet.create({
     tabText: {
         color: theme.colors.textSecondary,
         fontWeight: '600',
-        fontSize: 16,
+        fontSize: 14,
     },
     activeTabText: {
         color: '#FFF',
@@ -212,30 +236,33 @@ const styles = StyleSheet.create({
     },
     formContainer: {
         width: '100%',
-        marginBottom: theme.spacing.xl,
+        marginBottom: theme.spacing.md,
     },
     formTitle: {
         color: theme.colors.text,
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
         textAlign: 'center',
     },
     input: {
         backgroundColor: theme.colors.surface,
         borderRadius: 12,
-        padding: theme.spacing.md,
+        padding: theme.spacing.sm,
         color: theme.colors.text,
-        marginBottom: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
         borderWidth: 1,
         borderColor: theme.colors.border,
+        height: 48,
     },
     authButton: {
         backgroundColor: theme.colors.primary,
-        padding: theme.spacing.md,
+        padding: theme.spacing.sm,
         borderRadius: 12,
         alignItems: 'center',
-        marginTop: theme.spacing.sm,
+        marginTop: 4,
+        height: 48,
+        justifyContent: 'center',
     },
     authButtonText: {
         color: '#FFF',
@@ -245,7 +272,7 @@ const styles = StyleSheet.create({
     dividerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: theme.spacing.lg,
+        marginBottom: theme.spacing.md,
     },
     dividerLine: {
         flex: 1,
@@ -255,5 +282,6 @@ const styles = StyleSheet.create({
     dividerText: {
         color: theme.colors.textSecondary,
         paddingHorizontal: theme.spacing.md,
+        fontSize: 12,
     },
 });

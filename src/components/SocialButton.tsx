@@ -37,16 +37,16 @@ export const SocialButton = ({ provider, onPress, isLoading }: SocialButtonProps
 const styles = StyleSheet.create({
     container: {
         width: '100%',
-        height: 56,
+        height: 48,
         borderRadius: theme.spacing.sm,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
         flexDirection: 'row',
     },
     text: {
         color: '#FFFFFF',
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: 'bold',
         marginLeft: theme.spacing.sm,
     },

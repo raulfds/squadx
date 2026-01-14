@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep5() {
     const { data, submitProfile, loading } = useOnboarding();
@@ -57,7 +58,7 @@ export default function OnboardingStep5() {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
                     <Text style={styles.stepIndicator}>Passo 5 de 5</Text>
@@ -110,6 +111,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: theme.spacing.lg,
+        paddingBottom: 100,
     },
     header: {
         marginBottom: theme.spacing.xl,

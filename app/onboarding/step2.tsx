@@ -3,10 +3,12 @@ import { supabase } from '@/src/lib/supabase';
 import { theme } from '@/src/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep2() {
     const { updateData, data } = useOnboarding();
@@ -20,15 +22,26 @@ export default function OnboardingStep2() {
             return;
         }
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 5],
-            quality: 0.7,
-        });
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [4, 5],
+                quality: 1,
+            });
 
-        if (!result.canceled) {
-            uploadImage(result.assets[0].uri);
+            if (!result.canceled) {
+                // Resize and compress
+                const manipResult = await ImageManipulator.manipulateAsync(
+                    result.assets[0].uri,
+                    [{ resize: { width: 1080 } }],
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                uploadImage(manipResult.uri);
+            }
+        } catch (err) {
+            console.error('Error picking image:', err);
+            Alert.alert('Erro', 'Não foi possível selecionar a imagem.');
         }
     };
 
@@ -64,7 +77,14 @@ export default function OnboardingStep2() {
             setPhotos(prev => [...prev, publicUrl]);
         } catch (error: any) {
             console.error('Upload Error:', error);
-            Alert.alert('Erro no Upload', 'Falha ao enviar imagem. Verifique se o bucket "avatars" existe no Supabase.');
+            if (error.message && (error.message.includes('Bucket not found') || error.statusCode === '404' || error.message.includes('404'))) {
+                Alert.alert(
+                    'Configuração Necessária',
+                    'O bucket "avatars" não foi encontrado no Supabase. Crie-o como público no painel do Supabase.'
+                );
+            } else {
+                Alert.alert('Erro no Upload', 'Falha ao enviar imagem. Tente novamente.');
+            }
         } finally {
             setLoading(false);
         }
@@ -84,7 +104,7 @@ export default function OnboardingStep2() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
                     <Text style={styles.stepIndicator}>Passo 2 de 5</Text>
@@ -141,6 +161,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         padding: theme.spacing.lg,
+        paddingBottom: 100,
     },
     header: {
         marginBottom: theme.spacing.xl,
