@@ -51,13 +51,14 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('No session');
 
-            const { error } = await supabase
+            // 1. Upsert Profile Data
+            const { error: profileError } = await supabase
                 .from('profiles')
                 .upsert({
                     id: session.user.id,
                     username: data.username,
                     full_name: data.full_name,
-                    birth_date: data.birth_date, // ensure format YYYY-MM-DD
+                    birth_date: data.birth_date,
                     gender: data.gender,
                     bio: data.bio,
                     city: data.city,
@@ -68,17 +69,56 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
                     xbox_handle: data.xbox_handle,
                     steam_handle: data.steam_handle,
                     game_genres: data.game_genres,
-                    // games: data.games, // Assuming DB column 'games' exists or we just rely on genres. 
-                    // User said "store the game and the category". Let's assume we can store 'games' in a JSONB column or similar if it exists.
-                    // For now, I will ensure game_genres is populated from games if not manually set.
-                    // role_preferences: data.role_preferences, // Assume column added or mapped
                     availability: data.availability,
                     updated_at: new Date().toISOString(),
                 });
 
-            if (error) throw error;
+            if (profileError) throw profileError;
 
-            // Could also update user metadata to flag onboarding_completed: true
+            // 2. Sync Games to user_favorites if games data is present
+            if (data.games) {
+                // Fetch existing favorites
+                const { data: existingFavorites } = await supabase
+                    .from('user_favorites')
+                    .select('game_id')
+                    .eq('user_id', session.user.id);
+
+                const existingIds = existingFavorites?.map(f => f.game_id) || [];
+                const newIds = data.games.map(g => g.id.toString());
+
+                // Determine additions and removals
+                const toAdd = data.games.filter(g => !existingIds.includes(g.id.toString()));
+                const toRemove = existingIds.filter(id => !newIds.includes(id));
+
+                // Insert new games
+                if (toAdd.length > 0) {
+                    const formattedAdds = toAdd.map(g => ({
+                        user_id: session.user.id,
+                        game_id: g.id.toString(),
+                        game_name: g.name,
+                        game_cover_url: g.cover?.url ? `https:${g.cover.url}` : null,
+                        game_genres: g.genres?.map(gen => gen.name).join(', ') // Store as string for reference
+                    }));
+
+                    const { error: addError } = await supabase
+                        .from('user_favorites')
+                        .insert(formattedAdds);
+
+                    if (addError) console.error('Error adding games:', addError);
+                }
+
+                // Remove deleted games
+                if (toRemove.length > 0) {
+                    const { error: removeError } = await supabase
+                        .from('user_favorites')
+                        .delete()
+                        .eq('user_id', session.user.id)
+                        .in('game_id', toRemove);
+
+                    if (removeError) console.error('Error removing games:', removeError);
+                }
+            }
+
         } catch (error) {
             console.error('Error submitting profile:', error);
             throw error;

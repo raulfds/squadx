@@ -9,12 +9,6 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const DAYS = [
-    'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'
-];
-
-const PERIODS = ['Manhã', 'Tarde', 'Noite'];
-
 export default function OnboardingStep4() {
     const { updateData, data, submitProfile } = useOnboarding();
     const router = useRouter();
@@ -26,14 +20,11 @@ export default function OnboardingStep4() {
     const [searching, setSearching] = useState(false);
     const [selectedGames, setSelectedGames] = useState<Game[]>(data.games || []);
 
-    // Availability State: { "Segunda": ["Manhã", "Noite"], ... }
-    const [availability, setAvailability] = useState<{ [key: string]: string[] }>(data.availability || {});
-
     // Load data if accessing directly
     useEffect(() => {
         const load = async () => {
             if (data.username && data.games) {
-                // Already has data
+                // Already has data from context
                 return;
             }
             const { data: { session } } = await supabase.auth.getSession();
@@ -41,35 +32,24 @@ export default function OnboardingStep4() {
 
             const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
             if (profile) {
-                // Fetch games manually since they are in a separate table usually? 
-                // Wait, data.games comes from where? Ah, checking profile.tsx:
-                // "const { data: gamesData } = await supabase.from('user_favorites')..."
-                // OnboardingContext uses 'games' in memory but saves to 'user_favorites' table likely in backend or via upsert in a separate table?
-                // Let's check OnboardingContext... it upserts 'profiles' but does it handle games?
-                // Checking OnboardingProvider content from memory...
-                // "game_genres: data.game_genres" is in upsert.
-                // "games: data.games" - is this column in 'profiles'?
-                // The 'profiles' upsert only had 'game_genres'. 
-                // 'user_favorites' table is used for games.
-                // So we need to FETCH games from 'user_favorites' and set them here.
-
                 const { data: gamesData } = await supabase.from('user_favorites').select('*').eq('user_id', session.user.id);
 
-                // Mapper needed? Game object structure in IGDB vs DB?
-                // If saved as JSON in user_favorites or individual rows?
-                // Re-reading 'profile.tsx' fetch: "const { data: gamesData } = await supabase.from('user_favorites').select('*').eq('user_id', session.user.id);"
-                // Assuming 'user_favorites' stores the full game object or enough to reconstruct.
-                // Let's assume for now gamesData matches Game[] structure or close enough.
+                // Map database structure to Game interface
+                const mappedGames: Game[] = gamesData?.map(g => ({
+                    id: parseInt(g.game_id),
+                    name: g.game_name,
+                    cover: g.game_cover_url ? { id: 0, url: g.game_cover_url.replace('https:', '') } : undefined,
+                    genres: g.game_genres ? g.game_genres.split(', ').map((n: string) => ({ id: 0, name: n })) : []
+                })) || [];
 
                 updateData({
                     ...profile,
                     photos: profile.photos || [],
                     game_genres: profile.game_genres || [],
                     availability: profile.availability || {},
-                    games: gamesData || []
+                    games: mappedGames
                 });
-                setSelectedGames(gamesData || []);
-                setAvailability(profile.availability || {});
+                setSelectedGames(mappedGames);
             }
         };
         load();
@@ -102,17 +82,6 @@ export default function OnboardingStep4() {
         });
     };
 
-    const toggleAvailability = (day: string, period: string) => {
-        setAvailability(prev => {
-            const dayPeriods = prev[day] || [];
-            if (dayPeriods.includes(period)) {
-                return { ...prev, [day]: dayPeriods.filter(p => p !== period) };
-            } else {
-                return { ...prev, [day]: [...dayPeriods, period] };
-            }
-        });
-    };
-
     const handleNext = async () => {
         if (selectedGames.length === 0) {
             alert('Selecione pelo menos um jogo favorito.');
@@ -121,25 +90,24 @@ export default function OnboardingStep4() {
 
         // Extract genres from selected games
         const allGenres = selectedGames.flatMap(g => g.genres?.map(genre => genre.name) || []);
-        // Unique genres
         const uniqueGenres = Array.from(new Set(allGenres));
 
         updateData({
             games: selectedGames,
             game_genres: uniqueGenres,
-            availability: availability,
         });
 
-        // Final step: submit profile
-        try {
-            await submitProfile();
-            if (returnTo) {
+        if (returnTo) {
+            // Saving from Edit Profile
+            try {
+                await submitProfile();
                 router.replace(returnTo);
-            } else {
-                router.replace('/(tabs)');
+            } catch (error: any) {
+                alert('Erro ao salvar jogos: ' + error.message);
             }
-        } catch (error: any) {
-            alert('Erro ao salvar perfil: ' + error.message);
+        } else {
+            // Proceed to Step 5 (Availability)
+            router.push('/onboarding/step5');
         }
     };
 
@@ -148,7 +116,7 @@ export default function OnboardingStep4() {
             <View style={styles.header}>
                 <Text style={styles.stepIndicator}>Passo 4 de 5</Text>
                 <Text style={styles.title}>Perfil Gamer</Text>
-                <Text style={styles.subtitle}>Jogos favoritos e disponibilidade.</Text>
+                <Text style={styles.subtitle}>Quais jogos você curte jogar?</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -220,44 +188,6 @@ export default function OnboardingStep4() {
                     </View>
                 )}
 
-                {/* AVAILABILITY GRID SECTION */}
-                <View style={styles.divider} />
-                <Text style={styles.sectionTitle}>Disponibilidade</Text>
-
-                <View style={styles.scheduleGrid}>
-                    {/* Header Row */}
-                    <View style={styles.scheduleRow}>
-                        <View style={[styles.scheduleCell, { flex: 1.5 }]} />
-                        {PERIODS.map(period => (
-                            <View key={period} style={styles.scheduleCell}>
-                                <Text style={styles.scheduleHeader}>{period}</Text>
-                            </View>
-                        ))}
-                    </View>
-
-                    {/* Day Rows */}
-                    {DAYS.map(day => (
-                        <View key={day} style={styles.scheduleRow}>
-                            <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start', paddingLeft: 4 }]}>
-                                <Text style={styles.dayLabel}>{day}</Text>
-                            </View>
-                            {PERIODS.map(period => {
-                                const isSelected = availability[day]?.includes(period);
-                                return (
-                                    <View key={`${day}-${period}`} style={styles.scheduleCell}>
-                                        <TouchableOpacity
-                                            style={[styles.periodButton, isSelected && styles.periodButtonSelected]}
-                                            onPress={() => toggleAvailability(day, period)}
-                                        >
-                                            {isSelected && <Ionicons name="checkmark" size={14} color="#FFF" />}
-                                        </TouchableOpacity>
-                                    </View>
-                                );
-                            })}
-                        </View>
-                    ))}
-                </View>
-
             </ScrollView>
 
             <View style={styles.footer}>
@@ -267,8 +197,8 @@ export default function OnboardingStep4() {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[styles.navButton, styles.nextButton]} onPress={handleNext}>
-                    <Text style={styles.navButtonText}>{returnTo ? 'Salvar' : 'Concluir'}</Text>
-                    <Ionicons name={returnTo ? "checkmark" : "checkmark-circle"} size={20} color="#FFF" />
+                    <Text style={styles.navButtonText}>{returnTo ? 'Salvar' : 'Próximo'}</Text>
+                    <Ionicons name={returnTo ? "checkmark" : "arrow-forward"} size={20} color="#FFF" />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -394,53 +324,6 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontWeight: 'bold',
         fontSize: 14,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: theme.colors.border,
-        marginVertical: theme.spacing.lg,
-    },
-    /* Schedule Grid Styles */
-    scheduleGrid: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: theme.spacing.sm,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    scheduleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    scheduleCell: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    scheduleHeader: {
-        color: theme.colors.textSecondary,
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    dayLabel: {
-        color: theme.colors.text,
-        fontWeight: '500',
-        fontSize: 14,
-    },
-    periodButton: {
-        width: '80%',
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#2A2A2A', // Darker slot
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-    },
-    periodButtonSelected: {
-        backgroundColor: theme.colors.primary,
-        borderColor: theme.colors.primary,
     },
     footer: {
         padding: theme.spacing.lg,
