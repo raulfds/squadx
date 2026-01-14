@@ -15,6 +15,27 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
+    // Edit Modal State
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [editingField, setEditingField] = useState('');
+    const [editingLabel, setEditingLabel] = useState('');
+    const [editingValue, setEditingValue] = useState('');
+    const [editingMultiline, setEditingMultiline] = useState(false);
+
+    const openEdit = (field: string, label: string, value: string, multiline = false) => {
+        setEditingField(field);
+        setEditingLabel(label);
+        setEditingValue(value || '');
+        setEditingMultiline(multiline);
+        setEditModalVisible(true);
+    };
+
+    const handleSaveField = async (field: string, value: string) => {
+        const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', profile.id);
+        if (error) throw error;
+        setProfile((prev: any) => ({ ...prev, [field]: value }));
+    };
+
     const fetchProfile = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -137,61 +158,20 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* Identity */}
+                {/* Identity */}
                 <View style={styles.infoSection}>
                     <View style={styles.headerRow}>
                         <View style={{ flex: 1 }}>
                             <View style={styles.nameRow}>
                                 <Text style={styles.username}>{profile?.username || 'Novo Usuário'}</Text>
-                                {ratings && (
-                                    <View style={styles.overallRatingBadge}>
-                                        <Ionicons name="star" size={16} color="#FFF" />
-                                        <Text style={styles.overallRatingText}>
-                                            {((ratings.avg_respect + ratings.avg_communication + ratings.avg_humor + ratings.avg_collaboration) / 4).toFixed(1)}
-                                        </Text>
-                                    </View>
-                                )}
+                                {profile?.gender && <View style={styles.tag}><Text style={styles.tagText}>{profile.gender}</Text></View>}
                             </View>
-                            {profile?.gender && <View style={styles.tag}><Text style={styles.tagText}>{profile.gender}</Text></View>}
                             <Text style={styles.fullName}>{profile?.full_name}</Text>
                         </View>
                         <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/onboarding/step1')}>
                             <Ionicons name="pencil" size={20} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
-
-                    {/* Reputation Row */}
-                    {ratings && (
-                        <View style={styles.reputationRow}>
-                            <View style={styles.repItem}>
-                                <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
-                                    <Ionicons name="thumbs-up" size={16} color="#FFF" />
-                                </View>
-                                <Text style={styles.repValue}>{ratings.avg_respect || '-'}</Text>
-                                <Text style={styles.repLabel}>Resp.</Text>
-                            </View>
-                            <View style={styles.repItem}>
-                                <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
-                                    <Ionicons name="chatbubbles" size={16} color="#FFF" />
-                                </View>
-                                <Text style={styles.repValue}>{ratings.avg_communication || '-'}</Text>
-                                <Text style={styles.repLabel}>Com.</Text>
-                            </View>
-                            <View style={styles.repItem}>
-                                <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
-                                    <Ionicons name="happy" size={16} color="#FFF" />
-                                </View>
-                                <Text style={styles.repValue}>{ratings.avg_humor || '-'}</Text>
-                                <Text style={styles.repLabel}>Humor</Text>
-                            </View>
-                            <View style={styles.repItem}>
-                                <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
-                                    <Ionicons name="people" size={16} color="#FFF" />
-                                </View>
-                                <Text style={styles.repValue}>{ratings.avg_collaboration || '-'}</Text>
-                                <Text style={styles.repLabel}>Colab.</Text>
-                            </View>
-                        </View>
-                    )}
 
                     {profile?.city && profile?.state && (
                         <View style={styles.locationRow}>
@@ -205,6 +185,61 @@ export default function ProfileScreen() {
                     )}
 
                     <Text style={styles.bio}>{profile?.bio || 'Escreva algo sobre você...'}</Text>
+
+                    {/* Reputation Row - Now Included in Identity Section for prominence, or separate? User said "junto com as notas" */}
+                    {/* I'll put it right after the bio or maybe before? Usually reputation is high priority. Let's put it after bio for flow. */}
+
+                    {ratings && (
+                        <View style={styles.reputationContainer}>
+                            <Text style={styles.sectionSubtitle}>Reputação</Text>
+                            <View style={styles.reputationRow}>
+                                {/* Overall Score */}
+                                <View style={styles.repItem}>
+                                    <View style={[styles.repIcon, { backgroundColor: theme.colors.secondary }]}>
+                                        <Ionicons name="star" size={20} color="#000" />
+                                    </View>
+                                    <Text style={styles.repValue}>
+                                        {((ratings.avg_respect + ratings.avg_communication + ratings.avg_humor + ratings.avg_collaboration) / 4).toFixed(1)}
+                                    </Text>
+                                    <Text style={styles.repLabel}>Geral</Text>
+                                </View>
+
+                                <View style={styles.verticalDivider} />
+
+                                <View style={styles.repItem}>
+                                    <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
+                                        <Ionicons name="thumbs-up" size={16} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.repValue}>{ratings.avg_respect || '-'}</Text>
+                                    <Text style={styles.repLabel}>Resp.</Text>
+                                </View>
+
+                                <View style={styles.repItem}>
+                                    <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
+                                        <Ionicons name="chatbubbles" size={16} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.repValue}>{ratings.avg_communication || '-'}</Text>
+                                    <Text style={styles.repLabel}>Com.</Text>
+                                </View>
+
+                                <View style={styles.repItem}>
+                                    <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
+                                        <Ionicons name="happy" size={16} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.repValue}>{ratings.avg_humor || '-'}</Text>
+                                    <Text style={styles.repLabel}>Humor</Text>
+                                </View>
+
+                                <View style={styles.repItem}>
+                                    <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
+                                        <Ionicons name="people" size={16} color="#FFF" />
+                                    </View>
+                                    <Text style={styles.repValue}>{ratings.avg_collaboration || '-'}</Text>
+                                    <Text style={styles.repLabel}>Colab.</Text>
+                                </View>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 <TouchableOpacity style={[styles.editButton, { marginTop: 20, borderColor: theme.colors.error, backgroundColor: 'transparent' }]} onPress={handleSignOut}>
@@ -477,5 +512,32 @@ const styles = StyleSheet.create({
         fontSize: 10,
         color: theme.colors.textSecondary,
         marginTop: 2,
+    },
+    reputationContainer: {
+        marginTop: theme.spacing.lg,
+        paddingTop: theme.spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+    },
+    sectionSubtitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: theme.colors.textSecondary,
+        marginBottom: theme.spacing.sm,
+        textTransform: 'uppercase',
+    },
+    verticalDivider: {
+        width: 1,
+        height: '80%',
+        backgroundColor: theme.colors.border,
+        marginHorizontal: 8,
+    },
+    platformRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
     },
 });
