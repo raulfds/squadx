@@ -4,6 +4,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 
+import * as SplashScreen from 'expo-splash-screen';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
+
 type AuthContextType = {
     session: Session | null;
     loading: boolean;
@@ -24,6 +29,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         const fetchSession = async () => {
+            // Force a minimum slash screen time of 2 seconds
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
             const { data: { session }, error } = await supabase.auth.getSession();
             if (error) {
                 console.log('Error fetching session:', error.message);
@@ -34,6 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
             setSession(session);
             setLoading(false);
+            await SplashScreen.hideAsync();
         };
 
         fetchSession();
