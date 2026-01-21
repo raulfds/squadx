@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
         width: '80%',
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#2A2A2A', // Darker slot
+        backgroundColor: '#FFF', // Light slot
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,

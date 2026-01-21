@@ -1,7 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FilterModal from '../../src/components/FilterModal';
 import { supabase } from '../../src/lib/supabase';
@@ -11,6 +13,10 @@ import { Filters } from '../../src/types';
 const { width } = Dimensions.get('window');
 
 // ... (existing code for ExploreScreen state and logic is preserved, we are just fixing imports and render initially)
+
+// ... (existing code)
+
+const SWIPE_THRESHOLD = width * 0.25;
 
 export default function ExploreScreen() {
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -116,7 +122,9 @@ export default function ExploreScreen() {
       }
 
       setProfiles(data || []);
+      setProfiles(data || []);
       setCurrentProfileIndex(0);
+      translateX.value = 0;
     } catch (error: any) {
       Alert.alert('Erro', 'Não foi possível carregar perfis.');
       console.error(error);
@@ -174,6 +182,64 @@ export default function ExploreScreen() {
     }
   };
 
+  // Animation & Gesture Logic
+  const translateX = useSharedValue(0);
+  const contextX = useSharedValue(0);
+
+  const performSwipe = (isLike: boolean) => {
+    'worklet';
+    const destination = isLike ? width + 100 : -width - 100;
+    translateX.value = withTiming(destination, {}, () => {
+      runOnJS(handleSwipe)(isLike);
+    });
+  };
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .onBegin(() => {
+      contextX.value = translateX.value;
+    })
+    .onUpdate((e) => {
+      translateX.value = e.translationX + contextX.value;
+    })
+    .onEnd(() => {
+      if (translateX.value > SWIPE_THRESHOLD) {
+        performSwipe(true);
+      } else if (translateX.value < -SWIPE_THRESHOLD) {
+        performSwipe(false);
+      } else {
+        translateX.value = withSpring(0);
+      }
+    });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const rotate = interpolate(
+      translateX.value,
+      [-width / 2, 0, width / 2],
+      [-10, 0, 10],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { rotate: `${rotate}deg` }
+      ],
+    };
+  });
+
+  // Reset position when index changes
+  useEffect(() => {
+    translateX.value = 0;
+  }, [currentProfileIndex]);
+
+  // Manual swipe trigger
+  const manualSwipe = (isLike: boolean) => {
+    const destination = isLike ? width + 100 : -width - 100;
+    translateX.value = withTiming(destination, {}, () => {
+      runOnJS(handleSwipe)(isLike);
+    });
+  };
+
 
 
   if (loading && profiles.length === 0) {
@@ -187,234 +253,256 @@ export default function ExploreScreen() {
   /* ... existing logic ... */
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Explorar</Text>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
-          <Ionicons name="options" size={24} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {loading && profiles.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      ) : !profiles[currentProfileIndex] ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>Sem mais perfis por enquanto...</Text>
-          <TouchableOpacity onPress={fetchProfiles} style={styles.refreshButton}>
-            <Ionicons name="refresh" size={24} color="#FFF" />
-            <Text style={styles.refreshText}>Recarregar</Text>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Explorar</Text>
+          <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
+            <Ionicons name="options" size={24} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
-      ) : (
-        <View style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-            {/* Image Section */}
-            <View style={{ width: width, height: 500, position: 'relative' }}>
-              <Image
-                source={{ uri: (profiles[currentProfileIndex].photos && profiles[currentProfileIndex].photos.length > 0) ? profiles[currentProfileIndex].photos[0] : (profiles[currentProfileIndex].avatar_url || 'https://via.placeholder.com/400x500') }}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
-              <View style={styles.imageOverlayGradient} />
 
-              {/* Rating Badge on Photo */}
-              <View style={styles.photoRatingBadge}>
-                <Ionicons name="star" size={12} color="#000" />
-                <Text style={styles.photoRatingText}>
-                  {currentRating
-                    ? ((currentRating.avg_respect + currentRating.avg_communication + currentRating.avg_humor + currentRating.avg_collaboration) / 4).toFixed(1)
-                    : 'Novo'
-                  }
-                </Text>
-              </View>
-            </View>
+        {loading && profiles.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+          </View>
+        ) : !profiles[currentProfileIndex] ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>Sem mais perfis por enquanto...</Text>
+            <TouchableOpacity onPress={fetchProfiles} style={styles.refreshButton}>
+              <Ionicons name="refresh" size={24} color="#FFF" />
+              <Text style={styles.refreshText}>Recarregar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ flex: 1 }}>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+                <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+                  {/* Image Section */}
+                  <View style={{ width: width, height: 500, position: 'relative' }}>
+                    <Image
+                      source={{ uri: (profiles[currentProfileIndex].photos && profiles[currentProfileIndex].photos.length > 0) ? profiles[currentProfileIndex].photos[0] : (profiles[currentProfileIndex].avatar_url || 'https://via.placeholder.com/400x500') }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                    />
+                    <View style={styles.imageOverlayGradient} />
 
-            <View style={styles.contentContainer}>
-              {/* Header: Name, Age */}
-              <View style={styles.headerRow}>
-                <View>
-                  <Text style={styles.cardName}>{profiles[currentProfileIndex].username}</Text>
-                  {profiles[currentProfileIndex].birth_date && (
-                    <Text style={styles.cardAge}>
-                      {new Date().getFullYear() - new Date(profiles[currentProfileIndex].birth_date).getFullYear()} anos
-                    </Text>
-                  )}
-                </View>
-              </View>
-
-              {(profiles[currentProfileIndex].city && profiles[currentProfileIndex].state) && (
-                <View style={styles.locationRow}>
-                  <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
-                  <Text style={styles.cardLocation}>{profiles[currentProfileIndex].city} - {profiles[currentProfileIndex].state}</Text>
-                </View>
-              )}
-
-              {/* Bio */}
-              {profiles[currentProfileIndex].bio && (
-                <Text style={styles.cardBio}>{profiles[currentProfileIndex].bio}</Text>
-              )}
-
-
-              {/* Reputation Detail */}
-              {!!currentRating && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Reputação</Text>
-                  <View style={styles.reputationGrid}>
-                    <View style={styles.repItem}>
-                      <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
-                        <Ionicons name="thumbs-up" size={16} color="#FFF" />
-                      </View>
-                      <Text style={styles.repValue}>{currentRating.avg_respect}</Text>
-                      <Text style={styles.repLabel}>Respeito</Text>
-                    </View>
-                    <View style={styles.repItem}>
-                      <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
-                        <Ionicons name="chatbubbles" size={16} color="#FFF" />
-                      </View>
-                      <Text style={styles.repValue}>{currentRating.avg_communication}</Text>
-                      <Text style={styles.repLabel}>Comunicação</Text>
-                    </View>
-                    <View style={styles.repItem}>
-                      <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
-                        <Ionicons name="happy" size={16} color="#FFF" />
-                      </View>
-                      <Text style={styles.repValue}>{currentRating.avg_humor}</Text>
-                      <Text style={styles.repLabel}>Humor</Text>
-                    </View>
-                    <View style={styles.repItem}>
-                      <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
-                        <Ionicons name="people" size={16} color="#FFF" />
-                      </View>
-                      <Text style={styles.repValue}>{currentRating.avg_collaboration}</Text>
-                      <Text style={styles.repLabel}>Colaboração</Text>
+                    {/* Rating Badge on Photo */}
+                    <View style={styles.photoRatingBadge}>
+                      <Ionicons name="star" size={12} color="#000" />
+                      <Text style={styles.photoRatingText}>
+                        {currentRating
+                          ? ((currentRating.avg_respect + currentRating.avg_communication + currentRating.avg_humor + currentRating.avg_collaboration) / 4).toFixed(1)
+                          : 'Novo'
+                        }
+                      </Text>
                     </View>
                   </View>
-                </View>
-              )}
 
-              {/* Games */}
-              {(currentGames.length > 0 || (profiles[currentProfileIndex].game_genres && profiles[currentProfileIndex].game_genres.length > 0)) && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Jogos & Categorias</Text>
-
-                  {/* Games Icons */}
-                  {currentGames.length > 0 && (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 12 }}>
-                      {currentGames.map((g: any) => (
-                        <View key={g.game_id || g.id} style={styles.gameItem}>
-                          {g.game_cover_url ? (
-                            <Image source={{ uri: g.game_cover_url }} style={styles.gameIcon} />
-                          ) : (
-                            <View style={[styles.gameIcon, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
-                              <Ionicons name="game-controller" size={20} color="#666" />
-                            </View>
+                  <View style={styles.contentContainer}>
+                    {/* Header: Name, Age */}
+                    <View style={styles.headerRow}>
+                      <View>
+                        <Text style={styles.cardName}>{profiles[currentProfileIndex].username}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          {profiles[currentProfileIndex].birth_date && (
+                            <Text style={styles.cardAge}>
+                              {new Date().getFullYear() - new Date(profiles[currentProfileIndex].birth_date).getFullYear()} anos
+                            </Text>
                           )}
-                          <Text style={styles.gameName} numberOfLines={1}>{g.game_name || g.name}</Text>
+                          {profiles[currentProfileIndex].birth_date && profiles[currentProfileIndex].gender && (
+                            <Text style={styles.cardAge}> • </Text>
+                          )}
+                          {profiles[currentProfileIndex].gender && (
+                            <Text style={styles.cardAge}>
+                              {profiles[currentProfileIndex].gender}
+                            </Text>
+                          )}
                         </View>
-                      ))}
-                    </ScrollView>
-                  )}
-
-                  {/* Genre Chips */}
-                  {profiles[currentProfileIndex].game_genres && profiles[currentProfileIndex].game_genres.length > 0 && (
-                    <View style={styles.chipRow}>
-                      {profiles[currentProfileIndex].game_genres.map((g: string) => (
-                        <View key={g} style={styles.chip}>
-                          <Text style={styles.chipText}>{g}</Text>
-                        </View>
-                      ))}
+                      </View>
                     </View>
-                  )}
-                </View>
-              )}
 
-              {/* Availability Grid (Read Only - match Profile style) */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Disponibilidade</Text>
-                <View style={styles.scheduleGrid}>
-                  <View style={styles.scheduleRow}>
-                    <View style={[styles.scheduleCell, { flex: 1.5 }]} />
-                    {['Manhã', 'Tarde', 'Noite'].map(p => (
-                      <View key={p} style={styles.scheduleCell}>
-                        <Text style={styles.scheduleHeader}>{p}</Text>
+                    {(profiles[currentProfileIndex].city && profiles[currentProfileIndex].state) && (
+                      <View style={styles.locationRow}>
+                        <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
+                        <Text style={styles.cardLocation}>{profiles[currentProfileIndex].city} - {profiles[currentProfileIndex].state}</Text>
                       </View>
-                    ))}
-                  </View>
-                  {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(day => (
-                    <View key={day} style={styles.scheduleRow}>
-                      <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start', paddingLeft: 4 }]}>
-                        <Text style={styles.dayLabel}>{day.slice(0, 3)}</Text>
-                      </View>
-                      {['Manhã', 'Tarde', 'Noite'].map(period => {
-                        const isAvailable = profiles[currentProfileIndex].availability?.[day]?.includes(period);
-                        return (
-                          <View key={`${day}-${period}`} style={styles.scheduleCell}>
-                            <View style={[styles.periodButton, isAvailable && styles.periodButtonSelected]}>
-                              {isAvailable && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                    )}
+
+                    {/* Bio */}
+                    {profiles[currentProfileIndex].bio && (
+                      <Text style={styles.cardBio}>{profiles[currentProfileIndex].bio}</Text>
+                    )}
+
+
+                    {/* Reputation Detail */}
+                    {!!currentRating && (
+                      <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Reputação</Text>
+                        <View style={styles.reputationGrid}>
+                          <View style={styles.repItem}>
+                            <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
+                              <Ionicons name="thumbs-up" size={16} color="#FFF" />
                             </View>
+                            <Text style={styles.repValue}>{currentRating.avg_respect}</Text>
+                            <Text style={styles.repLabel}>Respeito</Text>
                           </View>
-                        );
-                      })}
+                          <View style={styles.repItem}>
+                            <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
+                              <Ionicons name="chatbubbles" size={16} color="#FFF" />
+                            </View>
+                            <Text style={styles.repValue}>{currentRating.avg_communication}</Text>
+                            <Text style={styles.repLabel}>Comunicação</Text>
+                          </View>
+                          <View style={styles.repItem}>
+                            <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
+                              <Ionicons name="happy" size={16} color="#FFF" />
+                            </View>
+                            <Text style={styles.repValue}>{currentRating.avg_humor}</Text>
+                            <Text style={styles.repLabel}>Humor</Text>
+                          </View>
+                          <View style={styles.repItem}>
+                            <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
+                              <Ionicons name="people" size={16} color="#FFF" />
+                            </View>
+                            <Text style={styles.repValue}>{currentRating.avg_collaboration}</Text>
+                            <Text style={styles.repLabel}>Colaboração</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Games */}
+                    {(currentGames.length > 0 || (profiles[currentProfileIndex].game_genres && profiles[currentProfileIndex].game_genres.length > 0)) && (
+                      <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Jogos & Categorias</Text>
+
+                        {/* Games Icons */}
+                        {currentGames.length > 0 && (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 12 }}>
+                            {currentGames.map((g: any) => (
+                              <View key={g.game_id || g.id} style={styles.gameItem}>
+                                {g.game_cover_url ? (
+                                  <Image source={{ uri: g.game_cover_url }} style={styles.gameIcon} />
+                                ) : (
+                                  <View style={[styles.gameIcon, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Ionicons name="game-controller" size={20} color="#999" />
+                                  </View>
+                                )}
+                                <Text style={styles.gameName} numberOfLines={1}>{g.game_name || g.name}</Text>
+                              </View>
+                            ))}
+                          </ScrollView>
+                        )}
+
+                        {/* Genre Chips */}
+                        {profiles[currentProfileIndex].game_genres && profiles[currentProfileIndex].game_genres.length > 0 && (
+                          <View style={styles.chipRow}>
+                            {profiles[currentProfileIndex].game_genres.map((g: string) => (
+                              <View key={g} style={styles.chip}>
+                                <Text style={styles.chipText}>{g}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    )}
+
+                    {/* Availability Grid (Read Only - match Profile style) */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Disponibilidade</Text>
+                      <View style={styles.scheduleGrid}>
+                        <View style={styles.scheduleRow}>
+                          <View style={[styles.scheduleCell, { flex: 1.5 }]} />
+                          {['Manhã', 'Tarde', 'Noite'].map(p => (
+                            <View key={p} style={styles.scheduleCell}>
+                              <Text style={styles.scheduleHeader}>{p}</Text>
+                            </View>
+                          ))}
+                        </View>
+                        {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(day => (
+                          <View key={day} style={styles.scheduleRow}>
+                            <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start', paddingLeft: 4 }]}>
+                              <Text style={styles.dayLabel}>{day.slice(0, 3)}</Text>
+                            </View>
+                            {['Manhã', 'Tarde', 'Noite'].map(period => {
+                              const isAvailable = profiles[currentProfileIndex].availability?.[day]?.includes(period);
+                              return (
+                                <View key={`${day}-${period}`} style={styles.scheduleCell}>
+                                  <View style={[styles.periodButton, isAvailable && styles.periodButtonSelected]}>
+                                    {isAvailable && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
                     </View>
-                  ))}
-                </View>
+
+                  </View>
+                </ScrollView>
+              </Animated.View>
+            </GestureDetector>
+
+            {/* Fixed Actions */}
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={() => manualSwipe(false)}>
+                <MaterialCommunityIcons name="controller-off" size={32} color="#000" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.actionButton, styles.likeButton]} onPress={() => manualSwipe(true)}>
+                <Ionicons name="game-controller" size={42} color="#ff005c" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={matchModalVisible}
+          onRequestClose={() => setMatchModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>DEU MATCH!</Text>
+              <Text style={styles.modalSubtitle}>Você e {matchedProfile?.username} se curtiram.</Text>
+
+              <View style={styles.matchAvatars}>
+                <Image
+                  source={{ uri: (myProfile?.photos && myProfile.photos.length > 0) ? myProfile.photos[0] : (myProfile?.avatar_url || 'https://via.placeholder.com/100') }}
+                  style={[styles.modalAvatar, { borderColor: theme.colors.primary }]}
+                />
+                <Ionicons name="game-controller" size={24} color="#ff005c" style={{ marginHorizontal: 16 }} />
+                <Image
+                  source={{ uri: (matchedProfile?.photos && matchedProfile.photos.length > 0) ? matchedProfile.photos[0] : (matchedProfile?.avatar_url || 'https://via.placeholder.com/100') }}
+                  style={styles.modalAvatar}
+                />
               </View>
 
+              <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
+                <Text style={styles.closeText}>Continuar explorando</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-
-          {/* Fixed Actions */}
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={() => handleSwipe(false)}>
-              <Ionicons name="close" size={32} color="#eb4034" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.actionButton, styles.likeButton]} onPress={() => handleSwipe(true)}>
-              <Ionicons name="game-controller" size={32} color="#ff005c" />
-            </TouchableOpacity>
           </View>
-        </View>
-      )}
+        </Modal>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={matchModalVisible}
-        onRequestClose={() => setMatchModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>DEU MATCH!</Text>
-            <Text style={styles.modalSubtitle}>Você e {matchedProfile?.username} se curtiram.</Text>
-
-            <View style={styles.matchAvatars}>
-              <Image
-                source={{ uri: (myProfile?.photos && myProfile.photos.length > 0) ? myProfile.photos[0] : (myProfile?.avatar_url || 'https://via.placeholder.com/100') }}
-                style={[styles.modalAvatar, { borderColor: theme.colors.primary }]}
-              />
-              <Ionicons name="game-controller" size={24} color="#ff005c" style={{ marginHorizontal: 16 }} />
-              <Image
-                source={{ uri: (matchedProfile?.photos && matchedProfile.photos.length > 0) ? matchedProfile.photos[0] : (matchedProfile?.avatar_url || 'https://via.placeholder.com/100') }}
-                style={styles.modalAvatar}
-              />
-            </View>
-
-            <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
-              <Text style={styles.closeText}>Continuar explorando</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <FilterModal
-        visible={filterModalVisible}
-        onClose={() => setFilterModalVisible(false)}
-        filters={filters}
-        onApply={setFilters}
-      />
-    </SafeAreaView>
+        <FilterModal
+          visible={filterModalVisible}
+          onClose={() => setFilterModalVisible(false)}
+          filters={filters}
+          onApply={setFilters}
+        />
+        <FilterModal
+          visible={filterModalVisible}
+          onClose={() => setFilterModalVisible(false)}
+          filters={filters}
+          onApply={setFilters}
+        />
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -623,7 +711,7 @@ const styles = StyleSheet.create({
     width: '80%',
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -660,11 +748,14 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   passButton: {
-    // defaults
+    borderColor: '#eb4034',
+    borderWidth: 4,
   },
   likeButton: {
-    borderColor: theme.colors.secondary,
-    backgroundColor: '#1E1E1E',
+    borderColor: '#04d361',
+    borderWidth: 4,
+    backgroundColor: theme.colors.surface,
+    elevation: 10,
   },
   emptyText: {
     color: theme.colors.textSecondary,

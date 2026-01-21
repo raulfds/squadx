@@ -60,7 +60,7 @@ BEGIN
 
   -- User 1 Profile
   INSERT INTO public.profiles (
-    id, username, full_name, city, state, bio, avatar_url, photos, game_genres, availability
+    id, username, full_name, city, state, bio, avatar_url, photos, game_genres, availability, gender, birth_date
   )
   VALUES (
     user1_id,
@@ -75,7 +75,9 @@ BEGIN
       'https://images.unsplash.com/photo-1487309078313-fad80c3ec1e5?w=500&auto=format&fit=crop&q=60'
     ],
     ARRAY['FPS', 'Competitivo'],
-    '{"Segunda": ["Noite"], "Quarta": ["Noite"], "Sábado": ["Tarde", "Noite"]}'::jsonb
+    '{"Segunda": ["Noite"], "Quarta": ["Noite"], "Sábado": ["Tarde", "Noite"]}'::jsonb,
+    'Masculino',
+    '2000-01-01'
   ) 
   ON CONFLICT (id) DO UPDATE SET
     username = EXCLUDED.username,
@@ -90,7 +92,7 @@ BEGIN
 
   -- User 2 Profile
   INSERT INTO public.profiles (
-    id, username, full_name, city, state, bio, avatar_url, photos, game_genres, availability
+    id, username, full_name, city, state, bio, avatar_url, photos, game_genres, availability, gender, birth_date
   )
   VALUES (
     user2_id,
@@ -105,7 +107,9 @@ BEGIN
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&auto=format&fit=crop&q=60'
     ],
     ARRAY['RPG', 'Aventura'],
-    '{"Domingo": ["Manhã", "Tarde", "Noite"], "Sexta": ["Noite"]}'::jsonb
+    '{"Domingo": ["Manhã", "Tarde", "Noite"], "Sexta": ["Noite"]}'::jsonb,
+    'Feminino',
+    '1998-05-15'
   ) 
   ON CONFLICT (id) DO UPDATE SET
     username = EXCLUDED.username,

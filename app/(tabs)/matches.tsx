@@ -105,6 +105,21 @@ export default function MatchesScreen() {
             />
             <View style={styles.info}>
                 <Text style={styles.username}>{item.username}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+                    {item.birth_date && (
+                        <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>
+                            {new Date().getFullYear() - new Date(item.birth_date).getFullYear()} anos
+                        </Text>
+                    )}
+                    {item.birth_date && item.gender && (
+                        <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}> • </Text>
+                    )}
+                    {item.gender && (
+                        <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>
+                            {item.gender}
+                        </Text>
+                    )}
+                </View>
                 <Text style={styles.lastMessage} numberOfLines={1}>
                     {item.discord_handle || 'Toque para ver IDs...'}
                 </Text>
