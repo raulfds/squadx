@@ -27,6 +27,19 @@ export default function ExploreScreen() {
     minHumor: 1,
     minCollaboration: 1
   });
+  const [myProfile, setMyProfile] = useState<any>(null);
+
+  useEffect(() => {
+    fetchMyProfile();
+  }, []);
+
+  const fetchMyProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      setMyProfile(data);
+    }
+  };
 
   useEffect(() => {
     fetchProfiles();
@@ -161,170 +174,7 @@ export default function ExploreScreen() {
     }
   };
 
-  const renderCard = () => {
-    const profile = profiles[currentProfileIndex];
-    if (!profile) {
-      return (
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>Sem mais perfis por enquanto...</Text>
-          <TouchableOpacity onPress={fetchProfiles} style={styles.refreshButton}>
-            <Ionicons name="refresh" size={24} color="#FFF" />
-            <Text style={styles.refreshText}>Recarregar</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
 
-    const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-    const PERIODS = ['Manhã', 'Tarde', 'Noite'];
-
-    return (
-      <View style={styles.card}>
-        <TouchableOpacity activeOpacity={0.9} onPress={() => setProfileModalVisible(true)} style={{ width: '100%', height: '65%', position: 'relative' }}>
-          <Image
-            source={{ uri: (profile.photos && profile.photos.length > 0) ? profile.photos[0] : (profile.avatar_url || 'https://via.placeholder.com/400x500') }}
-            style={{ width: '100%', height: '100%', backgroundColor: '#333' }}
-            contentFit="cover"
-          />
-          {/* Rating Badge on Photo */}
-          <View style={styles.photoRatingBadge}>
-            <Ionicons name="star" size={12} color="#000" />
-            <Text style={styles.photoRatingText}>
-              {currentRating
-                ? ((currentRating.avg_respect + currentRating.avg_communication + currentRating.avg_humor + currentRating.avg_collaboration) / 4).toFixed(1)
-                : 'Novo'
-              }
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <ScrollView style={styles.cardInfo} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-          {/* Scroll Hint */}
-          <View style={styles.scrollHintContainer}>
-            <Ionicons name="chevron-up" size={20} color={theme.colors.textSecondary} />
-            <Text style={styles.scrollHintText}>Detalhes</Text>
-          </View>
-          {/* Header: Name, Age */}
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.cardName}>{profile.username}</Text>
-              {profile.birth_date && (
-                <Text style={styles.cardAge}>
-                  {new Date().getFullYear() - new Date(profile.birth_date).getFullYear()} anos
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {(profile.city && profile.state) && (
-            <View style={styles.locationRow}>
-              <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
-              <Text style={styles.cardLocation}>{profile.city} - {profile.state}</Text>
-            </View>
-          )}
-
-          {/* Bio */}
-          {profile.bio && (
-            <Text style={styles.cardBio}>{profile.bio}</Text>
-          )}
-
-          {/* Reputation Detail */}
-          {!!currentRating && (
-            <View style={styles.reputationSection}>
-              <Text style={styles.sectionTitle}>Reputação</Text>
-              <View style={styles.reputationGrid}>
-                <View style={styles.repItem}>
-                  <Text style={styles.repLabel}>🤝 Respeito</Text>
-                  <Text style={styles.repValue}>{currentRating.avg_respect}</Text>
-                </View>
-                <View style={styles.repItem}>
-                  <Text style={styles.repLabel}>🗣️ Comum.</Text>
-                  <Text style={styles.repValue}>{currentRating.avg_communication}</Text>
-                </View>
-                <View style={styles.repItem}>
-                  <Text style={styles.repLabel}>😂 Humor</Text>
-                  <Text style={styles.repValue}>{currentRating.avg_humor}</Text>
-                </View>
-                <View style={styles.repItem}>
-                  <Text style={styles.repLabel}>🧠 Colab.</Text>
-                  <Text style={styles.repValue}>{currentRating.avg_collaboration}</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Games */}
-          {(currentGames.length > 0 || (profile.game_genres && profile.game_genres.length > 0)) && (
-            <View style={styles.gamesSection}>
-              <Text style={styles.sectionTitle}>Jogos & Categorias</Text>
-
-              {/* Games Icons */}
-              {currentGames.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 8 }}>
-                  {currentGames.map((g: any) => (
-                    <View key={g.game_id || g.id} style={styles.gameItem}>
-                      {g.game_cover_url ? (
-                        <Image source={{ uri: g.game_cover_url }} style={styles.gameIcon} />
-                      ) : (
-                        <View style={[styles.gameIcon, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
-                          <Ionicons name="game-controller" size={20} color="#666" />
-                        </View>
-                      )}
-                      <Text style={styles.gameName} numberOfLines={1}>{g.game_name || g.name}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
-
-              {/* Genre Chips */}
-              {profile.game_genres && profile.game_genres.length > 0 && (
-                <View style={styles.chipRow}>
-                  {profile.game_genres.map((g: string) => (
-                    <View key={g} style={styles.chip}>
-                      <Text style={styles.chipText}>{g}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Availability Grid (Read Only) */}
-          <View style={styles.availabilitySection}>
-            <Text style={styles.sectionTitle}>Disponibilidade</Text>
-            <View style={styles.scheduleGrid}>
-              {/* Header */}
-              <View style={styles.scheduleRow}>
-                <View style={[styles.scheduleCell, { flex: 1.5 }]} />
-                {PERIODS.map(p => (
-                  <View key={p} style={styles.scheduleCell}>
-                    <Text style={styles.scheduleHeader}>{p[0]}</Text>
-                  </View>
-                ))}
-              </View>
-              {/* Days */}
-              {DAYS.map(day => (
-                <View key={day} style={styles.scheduleRow}>
-                  <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start' }]}>
-                    <Text style={styles.dayLabel}>{day.slice(0, 3)}</Text>
-                  </View>
-                  {PERIODS.map(period => {
-                    const isAvailable = profile.availability?.[day]?.includes(period);
-                    return (
-                      <View key={`${day}-${period}`} style={styles.scheduleCell}>
-                        <View style={[styles.dot, isAvailable && styles.dotActive]} />
-                      </View>
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          </View>
-
-        </ScrollView>
-      </View>
-    );
-  };
 
   if (loading && profiles.length === 0) {
     return (
@@ -333,6 +183,8 @@ export default function ExploreScreen() {
       </View>
     );
   }
+
+  /* ... existing logic ... */
 
   return (
     <SafeAreaView style={styles.container}>
@@ -343,19 +195,186 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.cardsContainer}>
-        {renderCard()}
-      </View>
-
-      {profiles[currentProfileIndex] && (
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={() => handleSwipe(false)}>
-            <Ionicons name="close" size={32} color="#eb4034" />
+      {loading && profiles.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : !profiles[currentProfileIndex] ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.emptyText}>Sem mais perfis por enquanto...</Text>
+          <TouchableOpacity onPress={fetchProfiles} style={styles.refreshButton}>
+            <Ionicons name="refresh" size={24} color="#FFF" />
+            <Text style={styles.refreshText}>Recarregar</Text>
           </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+            {/* Image Section */}
+            <View style={{ width: width, height: 500, position: 'relative' }}>
+              <Image
+                source={{ uri: (profiles[currentProfileIndex].photos && profiles[currentProfileIndex].photos.length > 0) ? profiles[currentProfileIndex].photos[0] : (profiles[currentProfileIndex].avatar_url || 'https://via.placeholder.com/400x500') }}
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+              />
+              <View style={styles.imageOverlayGradient} />
 
-          <TouchableOpacity style={[styles.actionButton, styles.likeButton]} onPress={() => handleSwipe(true)}>
-            <Ionicons name="heart" size={32} color="#04d361" />
-          </TouchableOpacity>
+              {/* Rating Badge on Photo */}
+              <View style={styles.photoRatingBadge}>
+                <Ionicons name="star" size={12} color="#000" />
+                <Text style={styles.photoRatingText}>
+                  {currentRating
+                    ? ((currentRating.avg_respect + currentRating.avg_communication + currentRating.avg_humor + currentRating.avg_collaboration) / 4).toFixed(1)
+                    : 'Novo'
+                  }
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.contentContainer}>
+              {/* Header: Name, Age */}
+              <View style={styles.headerRow}>
+                <View>
+                  <Text style={styles.cardName}>{profiles[currentProfileIndex].username}</Text>
+                  {profiles[currentProfileIndex].birth_date && (
+                    <Text style={styles.cardAge}>
+                      {new Date().getFullYear() - new Date(profiles[currentProfileIndex].birth_date).getFullYear()} anos
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {(profiles[currentProfileIndex].city && profiles[currentProfileIndex].state) && (
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
+                  <Text style={styles.cardLocation}>{profiles[currentProfileIndex].city} - {profiles[currentProfileIndex].state}</Text>
+                </View>
+              )}
+
+              {/* Bio */}
+              {profiles[currentProfileIndex].bio && (
+                <Text style={styles.cardBio}>{profiles[currentProfileIndex].bio}</Text>
+              )}
+
+
+              {/* Reputation Detail */}
+              {!!currentRating && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Reputação</Text>
+                  <View style={styles.reputationGrid}>
+                    <View style={styles.repItem}>
+                      <View style={[styles.repIcon, { backgroundColor: '#4CB5F5' }]}>
+                        <Ionicons name="thumbs-up" size={16} color="#FFF" />
+                      </View>
+                      <Text style={styles.repValue}>{currentRating.avg_respect}</Text>
+                      <Text style={styles.repLabel}>Respeito</Text>
+                    </View>
+                    <View style={styles.repItem}>
+                      <View style={[styles.repIcon, { backgroundColor: '#B7B8B6' }]}>
+                        <Ionicons name="chatbubbles" size={16} color="#FFF" />
+                      </View>
+                      <Text style={styles.repValue}>{currentRating.avg_communication}</Text>
+                      <Text style={styles.repLabel}>Comunicação</Text>
+                    </View>
+                    <View style={styles.repItem}>
+                      <View style={[styles.repIcon, { backgroundColor: '#FFD93E' }]}>
+                        <Ionicons name="happy" size={16} color="#FFF" />
+                      </View>
+                      <Text style={styles.repValue}>{currentRating.avg_humor}</Text>
+                      <Text style={styles.repLabel}>Humor</Text>
+                    </View>
+                    <View style={styles.repItem}>
+                      <View style={[styles.repIcon, { backgroundColor: '#6F00FF' }]}>
+                        <Ionicons name="people" size={16} color="#FFF" />
+                      </View>
+                      <Text style={styles.repValue}>{currentRating.avg_collaboration}</Text>
+                      <Text style={styles.repLabel}>Colaboração</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Games */}
+              {(currentGames.length > 0 || (profiles[currentProfileIndex].game_genres && profiles[currentProfileIndex].game_genres.length > 0)) && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Jogos & Categorias</Text>
+
+                  {/* Games Icons */}
+                  {currentGames.length > 0 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, marginBottom: 12 }}>
+                      {currentGames.map((g: any) => (
+                        <View key={g.game_id || g.id} style={styles.gameItem}>
+                          {g.game_cover_url ? (
+                            <Image source={{ uri: g.game_cover_url }} style={styles.gameIcon} />
+                          ) : (
+                            <View style={[styles.gameIcon, { backgroundColor: '#333', justifyContent: 'center', alignItems: 'center' }]}>
+                              <Ionicons name="game-controller" size={20} color="#666" />
+                            </View>
+                          )}
+                          <Text style={styles.gameName} numberOfLines={1}>{g.game_name || g.name}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+
+                  {/* Genre Chips */}
+                  {profiles[currentProfileIndex].game_genres && profiles[currentProfileIndex].game_genres.length > 0 && (
+                    <View style={styles.chipRow}>
+                      {profiles[currentProfileIndex].game_genres.map((g: string) => (
+                        <View key={g} style={styles.chip}>
+                          <Text style={styles.chipText}>{g}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Availability Grid (Read Only - match Profile style) */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Disponibilidade</Text>
+                <View style={styles.scheduleGrid}>
+                  <View style={styles.scheduleRow}>
+                    <View style={[styles.scheduleCell, { flex: 1.5 }]} />
+                    {['Manhã', 'Tarde', 'Noite'].map(p => (
+                      <View key={p} style={styles.scheduleCell}>
+                        <Text style={styles.scheduleHeader}>{p}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(day => (
+                    <View key={day} style={styles.scheduleRow}>
+                      <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start', paddingLeft: 4 }]}>
+                        <Text style={styles.dayLabel}>{day.slice(0, 3)}</Text>
+                      </View>
+                      {['Manhã', 'Tarde', 'Noite'].map(period => {
+                        const isAvailable = profiles[currentProfileIndex].availability?.[day]?.includes(period);
+                        return (
+                          <View key={`${day}-${period}`} style={styles.scheduleCell}>
+                            <View style={[styles.periodButton, isAvailable && styles.periodButtonSelected]}>
+                              {isAvailable && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+            </View>
+          </ScrollView>
+
+          {/* Fixed Actions */}
+          <View style={styles.actionsContainer}>
+            <TouchableOpacity style={[styles.actionButton, styles.passButton]} onPress={() => handleSwipe(false)}>
+              <Ionicons name="close" size={32} color="#eb4034" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.actionButton, styles.likeButton]} onPress={() => handleSwipe(true)}>
+              <Ionicons name="game-controller" size={32} color="#ff005c" />
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -367,28 +386,20 @@ export default function ExploreScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>IT'S A MATCH!</Text>
+            <Text style={styles.modalTitle}>DEU MATCH!</Text>
             <Text style={styles.modalSubtitle}>Você e {matchedProfile?.username} se curtiram.</Text>
 
             <View style={styles.matchAvatars}>
-              <View style={styles.avatarPlaceholder} />
-              <Ionicons name="heart" size={24} color={theme.colors.primary} style={{ marginHorizontal: 16 }} />
               <Image
-                source={{ uri: matchedProfile?.avatar_url || 'https://via.placeholder.com/100' }}
+                source={{ uri: (myProfile?.photos && myProfile.photos.length > 0) ? myProfile.photos[0] : (myProfile?.avatar_url || 'https://via.placeholder.com/100') }}
+                style={[styles.modalAvatar, { borderColor: theme.colors.primary }]}
+              />
+              <Ionicons name="game-controller" size={24} color="#ff005c" style={{ marginHorizontal: 16 }} />
+              <Image
+                source={{ uri: (matchedProfile?.photos && matchedProfile.photos.length > 0) ? matchedProfile.photos[0] : (matchedProfile?.avatar_url || 'https://via.placeholder.com/100') }}
                 style={styles.modalAvatar}
               />
             </View>
-
-            <TouchableOpacity
-              style={styles.chatButton}
-              onPress={() => {
-                setMatchModalVisible(false);
-                // Navigate to chat (TODO)
-                Alert.alert('Chat', 'Funcionalidade de chat em breve!');
-              }}
-            >
-              <Text style={styles.chatButtonText}>Mandar Oi</Text>
-            </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
               <Text style={styles.closeText}>Continuar explorando</Text>
@@ -424,6 +435,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     position: 'relative',
+    backgroundColor: theme.colors.background,
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border
   },
   headerTitle: {
     fontSize: 22,
@@ -436,52 +451,26 @@ const styles = StyleSheet.create({
     right: theme.spacing.md,
     top: theme.spacing.md,
   },
-  cardsContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.sm,
+  contentContainer: {
+    padding: theme.spacing.lg,
   },
-  imageOverlay: {
+  imageOverlayGradient: {
     position: 'absolute',
     bottom: 0,
     width: '100%',
-    padding: 8,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    alignItems: 'center',
-  },
-  overlayText: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  scrollHintContainer: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  scrollHintText: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    marginTop: -4,
-  },
-  card: {
-    width: width * 0.95,
-    height: '85%',
-    backgroundColor: theme.colors.surface,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    height: 100,
+    // Linear gradient simulation or removal if not needed,
+    // but here we just leave it transparent or update if we had expo-linear-gradient
   },
   photoRatingBadge: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 20,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.secondary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
     gap: 4,
     zIndex: 10,
@@ -489,51 +478,30 @@ const styles = StyleSheet.create({
   photoRatingText: {
     fontWeight: 'bold',
     color: '#000',
-    fontSize: 12,
-  },
-  // cardImage style removed from here as it is inline now or can be redefined if needed for cleanliness
-  cardInfo: {
-    flex: 1,
-    padding: theme.spacing.md,
+    fontSize: 14,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 4,
-  },
-  nameRow: {
-    // Deprecated in new layout but handled above
+    marginTop: 10
   },
   cardName: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '900',
     color: theme.colors.text,
   },
   cardAge: {
-    fontSize: 14,
+    fontSize: 16,
     color: theme.colors.textSecondary,
     marginBottom: 4,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.secondary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
-  },
-  ratingText: {
-    fontWeight: 'bold',
-    color: '#000',
-    fontSize: 16,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   cardLocation: {
     fontSize: 14,
@@ -542,91 +510,99 @@ const styles = StyleSheet.create({
   cardBio: {
     fontSize: 16,
     color: theme.colors.text,
-    lineHeight: 22,
-    marginBottom: 16,
+    lineHeight: 24,
+    marginBottom: 24,
   },
-  /* Reputation */
-  reputationSection: {
-    marginBottom: 16,
-    backgroundColor: theme.colors.background,
-    padding: 12,
-    borderRadius: 12,
+  /* Sections */
+  section: {
+    marginBottom: 24,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    color: theme.colors.text,
+    marginBottom: 16,
   },
+  /* Reputation Grid */
   reputationGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    backgroundColor: theme.colors.surface,
+    padding: 16,
+    borderRadius: 16,
   },
   repItem: {
     alignItems: 'center',
+    flex: 1
+  },
+  repIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   repLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.colors.textSecondary,
-    marginBottom: 4,
+    marginTop: 4,
   },
   repValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: theme.colors.primary,
+    color: theme.colors.text,
   },
   /* Games */
-  gamesSection: {
-    marginBottom: 16,
-  },
   gameItem: {
-    width: 60,
+    width: 70,
     alignItems: 'center',
     marginRight: 8,
   },
   gameIcon: {
-    width: 50,
-    height: 50,
+    width: 60,
+    height: 60,
     borderRadius: 12,
-    marginBottom: 4,
-    backgroundColor: theme.colors.background,
+    marginBottom: 6,
+    backgroundColor: theme.colors.surface,
   },
   gameName: {
     color: theme.colors.text,
-    fontSize: 10,
+    fontSize: 11,
     textAlign: 'center',
     fontWeight: 'bold',
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
   },
   chip: {
     backgroundColor: theme.colors.secondary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   chipText: {
     color: '#000',
     fontWeight: 'bold',
-    fontSize: 10,
+    fontSize: 12,
   },
-  /* Availability */
-  availabilitySection: {
-    marginBottom: 16,
-  },
+  /* Availability / Schedule */
   scheduleGrid: {
-    backgroundColor: theme.colors.background,
-    padding: 8,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
+    padding: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   scheduleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 12,
   },
   scheduleCell: {
     flex: 1,
@@ -636,36 +612,42 @@ const styles = StyleSheet.create({
   scheduleHeader: {
     color: theme.colors.textSecondary,
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   dayLabel: {
     color: theme.colors.text,
-    fontWeight: 'bold',
-    fontSize: 11,
+    fontWeight: '500',
+    fontSize: 12,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.border,
+  periodButton: {
+    width: '80%',
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  dotActive: {
+  periodButtonSelected: {
     backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
   },
 
   /* Actions */
   actionsContainer: {
     position: 'absolute',
-    bottom: 30, // Floats over provided space
+    bottom: 30,
     alignSelf: 'center',
     flexDirection: 'row',
     justifyContent: 'space-evenly',
-    width: '80%',
+    width: '100%',
+    paddingHorizontal: 40
   },
   actionButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: "#000",
@@ -687,6 +669,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.md,
+    fontSize: 16
   },
   refreshButton: {
     flexDirection: 'row',
@@ -700,7 +683,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
   },
-  // Modal... (existing modal styles below)
+  // Modal... 
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.8)',
@@ -741,14 +724,6 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     borderWidth: 2,
     borderColor: theme.colors.secondary,
-  },
-  avatarPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: theme.colors.primary, // Current user placeholder
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
   },
   chatButton: {
     backgroundColor: theme.colors.secondary,
