@@ -71,7 +71,7 @@ export default function MatchesScreen() {
             // 2. Check which of them liked me back
             const { data: mutualSwipes, error } = await supabase
                 .from('swipes')
-                .select('swiper_id, profiles:swiper_id(*)') // Fetch profile info of the swiper
+                .select('swiper_id, profiles:swiper_id(*, latitude, longitude)') // Explicitly asking for lat/long
                 .eq('swiped_id', session.user.id)
                 .eq('is_like', true)
                 .in('swiper_id', myLikedIds);
@@ -79,15 +79,31 @@ export default function MatchesScreen() {
             if (error) throw error;
 
             // 3. Format data
+            console.log('Distance Debug - Mutual Swipes Raw:', JSON.stringify(mutualSwipes, null, 2));
+
             const formattedMatches = mutualSwipes.map(item => {
-                const p = item.profiles;
+                const profileData = item.profiles as any;
+                const p = Array.isArray(profileData) ? profileData[0] : profileData;
+
+                if (!p) return null;
+
                 // Calculate distance
                 let distance = null;
-                if (myProfile?.latitude && myProfile?.longitude && p.latitude && p.longitude) {
-                    distance = getDistanceFromLatLonInKm(myProfile.latitude, myProfile.longitude, p.latitude, p.longitude);
+
+                const myLat = myProfile?.latitude;
+                const myLng = myProfile?.longitude;
+                const theirLat = p?.latitude;
+                const theirLng = p?.longitude;
+
+                if (myLat != null && myLng != null && theirLat != null && theirLng != null) {
+                    distance = getDistanceFromLatLonInKm(myLat, myLng, theirLat, theirLng);
+                    console.log(`Calculating for ${p.username}: ${distance} km`);
+                } else {
+                    console.log(`Skipping distance for ${p.username}: Missing Coords. Me(${myLat},${myLng}) Them(${theirLat},${theirLng})`);
                 }
+
                 return { ...p, distance_km: distance };
-            });
+            }).filter(Boolean); // Filter out nulls
             setMatches(formattedMatches || []);
 
         } catch (error) {
