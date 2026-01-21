@@ -10,6 +10,9 @@ export interface OnboardingData {
     bio?: string;
     city?: string;
     state?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    cep?: string;
     photos?: string[];
     discord_handle?: string;
     psn_handle?: string;
@@ -63,6 +66,9 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
                     bio: data.bio,
                     city: data.city,
                     state: data.state,
+                    cep: data.cep,
+                    latitude: data.latitude,
+                    longitude: data.longitude,
                     photos: data.photos,
                     discord_handle: data.discord_handle,
                     psn_handle: data.psn_handle,

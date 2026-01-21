@@ -35,7 +35,8 @@ export default function FilterModal({ visible, onClose, filters, onApply }: Filt
             maxAge: 99,
             sameLocation: false,
             samePlatform: false,
-            commonGames: false
+            commonGames: false,
+            maxDistanceKm: 100 // Default or undefined
         };
         setLocalFilters(resetFilters);
         onApply(resetFilters);
@@ -118,7 +119,7 @@ export default function FilterModal({ visible, onClose, filters, onApply }: Filt
 
                         {/* Age Sliders */}
                         {renderSlider("Idade Mínima", localFilters.minAge || 18, (v) => updateFilter('minAge', v), theme.colors.text, 18, 99)}
-                        {renderSlider("Idade Máxima", localFilters.maxAge || 99, (v) => updateFilter('maxAge', v), theme.colors.textAndSecondary || theme.colors.text, 18, 99)}
+                        {renderSlider("Idade Máxima", localFilters.maxAge || 99, (v) => updateFilter('maxAge', v), theme.colors.textSecondary || theme.colors.text, 18, 99)}
 
                         <View style={styles.divider} />
 
@@ -126,6 +127,10 @@ export default function FilterModal({ visible, onClose, filters, onApply }: Filt
                         {renderSwitch("Mesma Cidade/Estado", localFilters.sameLocation, (v) => updateFilter('sameLocation', v))}
                         {renderSwitch("Mesmas Plataformas", localFilters.samePlatform, (v) => updateFilter('samePlatform', v))}
                         {renderSwitch("Jogos em Comum", localFilters.commonGames, (v) => updateFilter('commonGames', v))}
+
+                        <View style={{ marginTop: 16 }}>
+                            {renderSlider("Distância Máxima (km)", localFilters.maxDistanceKm || 100, (v) => updateFilter('maxDistanceKm', v), theme.colors.primary, 1, 100, true)}
+                        </View>
 
                         <View style={styles.divider} />
 

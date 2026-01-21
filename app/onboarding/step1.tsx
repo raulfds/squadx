@@ -8,7 +8,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function OnboardingStep1() {
-    const { updateData, data, submitProfile } = useOnboarding();
+    const { updateData, data } = useOnboarding();
     const router = useRouter();
     const params = useLocalSearchParams();
     const returnTo = params.returnTo as string;
@@ -18,10 +18,12 @@ export default function OnboardingStep1() {
     const [bio, setBio] = useState(data.bio || '');
     const [birthDate, setBirthDate] = useState(data.birth_date || '');
     const [dateDisplay, setDateDisplay] = useState(data.birth_date ? data.birth_date.split('-').reverse().join('/') : '');
-    const [gender, setGender] = useState(data.gender || '');
-    const [cep, setCep] = useState('');
+    const [gender, setGender] = useState(data.gender || 'Outro');
+    const [cep, setCep] = useState(data.cep || '');
     const [city, setCity] = useState(data.city || '');
     const [state, setState] = useState(data.state || '');
+    const [latitude, setLatitude] = useState<number | null>(data.latitude || null);
+    const [longitude, setLongitude] = useState<number | null>(data.longitude || null);
     const [loadingLocation, setLoadingLocation] = useState(false); // Renamed from loadingCep to be more generic if needed
     const [loadingCep, setLoadingCep] = useState(false); // Keeping this for now, but loadingLocation might replace it
 
@@ -64,11 +66,17 @@ export default function OnboardingStep1() {
     const fetchAddress = async (cleanCep: string) => {
         setLoadingCep(true);
         try {
-            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+            // Using BrasilAPI V2 for Coordinates
+            const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
             const data = await response.json();
-            if (!data.erro) {
-                setCity(data.localidade);
-                setState(data.uf);
+
+            if (!data.errors) {
+                setCity(data.city);
+                setState(data.state);
+                if (data.location && data.location.coordinates) {
+                    setLatitude(parseFloat(data.location.coordinates.latitude));
+                    setLongitude(parseFloat(data.location.coordinates.longitude));
+                }
             } else {
                 alert('CEP não encontrado.');
             }
@@ -104,6 +112,7 @@ export default function OnboardingStep1() {
                     setGender(profile.gender || '');
                     setCity(profile.city || '');
                     setState(profile.state || '');
+                    setCep(profile.cep || '');
 
                     if (profile.birth_date) {
                         setDateDisplay(profile.birth_date.split('-').reverse().join('/'));
@@ -131,7 +140,7 @@ export default function OnboardingStep1() {
             alert('Por favor, preencha o nome de usuário e uma data de nascimento válida.');
             return;
         }
-        updateData({ username, full_name: fullName, bio, birth_date: birthDate, gender, city, state });
+        updateData({ username, full_name: fullName, bio, birth_date: birthDate, gender, city, state, latitude, longitude, cep });
         router.push('/onboarding/step2');
     };
 
@@ -262,13 +271,17 @@ export default function OnboardingStep1() {
 }
 
 const styles = StyleSheet.create({
+    form: {
+        marginBottom: theme.spacing.xl,
+    },
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,
     },
     scrollContent: {
+        flexGrow: 1,
         padding: theme.spacing.lg,
-        paddingBottom: 100, // Extra padding for bottom navigation
+        paddingBottom: 40,
     },
     header: {
         marginBottom: theme.spacing.xl,
@@ -288,45 +301,34 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: theme.colors.textSecondary,
     },
-    form: {
-        marginBottom: theme.spacing.xl,
-    },
     label: {
-        fontSize: 16,
-        color: theme.colors.text,
-        marginBottom: theme.spacing.xs,
+        color: theme.colors.textSecondary,
+        marginBottom: 8,
+        marginTop: 16,
         fontWeight: '500',
     },
     input: {
         backgroundColor: theme.colors.surface,
-        padding: theme.spacing.md,
         borderRadius: 12,
+        padding: theme.spacing.md,
         color: theme.colors.text,
-        marginBottom: theme.spacing.md,
+        fontSize: 16,
         borderWidth: 1,
         borderColor: theme.colors.border,
     },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    row: {
-        flexDirection: 'row',
-    },
     textArea: {
-        minHeight: 100,
+        height: 120,
     },
     genderContainer: {
         flexDirection: 'row',
-        marginBottom: theme.spacing.md,
-        gap: 8,
+        gap: 10,
+        marginTop: 4,
     },
     genderButton: {
-        flex: 1,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
         backgroundColor: theme.colors.surface,
-        padding: theme.spacing.md,
-        borderRadius: 12,
-        alignItems: 'center',
         borderWidth: 1,
         borderColor: theme.colors.border,
     },
@@ -336,10 +338,10 @@ const styles = StyleSheet.create({
     },
     genderText: {
         color: theme.colors.text,
-        fontWeight: '600',
     },
     genderTextSelected: {
         color: '#FFF',
+        fontWeight: 'bold',
     },
     nextButton: {
         backgroundColor: theme.colors.secondary,
@@ -349,10 +351,20 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         gap: 8,
+        marginTop: theme.spacing.xl,
     },
     nextButtonText: {
         color: '#000',
         fontWeight: 'bold',
         fontSize: 18,
     },
+    row: {
+        flexDirection: 'row',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    }
 });
+
+

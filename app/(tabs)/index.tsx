@@ -91,7 +91,8 @@ export default function ExploreScreen() {
         p_max_age: filters.maxAge,
         p_same_location: filters.sameLocation,
         p_same_platform: filters.samePlatform,
-        p_common_games: filters.commonGames
+        p_common_games: filters.commonGames,
+        p_max_distance_km: filters.maxDistanceKm
       });
 
       if (error) throw error;
@@ -327,6 +328,9 @@ export default function ExploreScreen() {
                       <View style={styles.locationRow}>
                         <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
                         <Text style={styles.cardLocation}>{profiles[currentProfileIndex].city} - {profiles[currentProfileIndex].state}</Text>
+                        {typeof profiles[currentProfileIndex].distance_km === 'number' && (
+                          <Text style={styles.cardLocation}> • {profiles[currentProfileIndex].distance_km.toFixed(1)} km</Text>
+                        )}
                       </View>
                     )}
 

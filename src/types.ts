@@ -11,6 +11,7 @@ export interface Profile {
     xbox_handle?: string;
     steam_handle?: string;
     riot_handle?: string;
+    cep?: string;
 }
 
 export interface Match extends Profile {
@@ -29,4 +30,5 @@ export interface Filters {
     commonGames?: boolean;
     minAge?: number;
     maxAge?: number;
+    maxDistanceKm?: number;
 }

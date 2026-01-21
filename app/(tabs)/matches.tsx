@@ -20,6 +20,24 @@ export default function MatchesScreen() {
         fetchMatches();
     }, []);
 
+    function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+        if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+        const R = 6371;
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const d = R * c;
+        return d;
+    }
+
+    function deg2rad(deg: number) {
+        return deg * (Math.PI / 180)
+    }
+
     const fetchMatches = async () => {
         setLoading(true);
         try {
@@ -32,6 +50,10 @@ export default function MatchesScreen() {
             // Based on handleSwipe in index.tsx, we check 'swipes' table.
 
             // Simplified match fetching: Find people I liked who also liked me
+            // 0. Get My Coords
+            const { data } = await supabase.from('profiles').select('latitude, longitude').eq('id', session.user.id).single();
+            const myProfile = data as any;
+
             // 1. Get my likes
             const { data: myLikes } = await supabase
                 .from('swipes')
@@ -49,7 +71,7 @@ export default function MatchesScreen() {
             // 2. Check which of them liked me back
             const { data: mutualSwipes, error } = await supabase
                 .from('swipes')
-                .select('swiper_id, profiles:swiper_id(*)') // Fetch profile info of the swiper (the matched person)
+                .select('swiper_id, profiles:swiper_id(*)') // Fetch profile info of the swiper
                 .eq('swiped_id', session.user.id)
                 .eq('is_like', true)
                 .in('swiper_id', myLikedIds);
@@ -57,7 +79,15 @@ export default function MatchesScreen() {
             if (error) throw error;
 
             // 3. Format data
-            const formattedMatches = mutualSwipes.map(item => item.profiles);
+            const formattedMatches = mutualSwipes.map(item => {
+                const p = item.profiles;
+                // Calculate distance
+                let distance = null;
+                if (myProfile?.latitude && myProfile?.longitude && p.latitude && p.longitude) {
+                    distance = getDistanceFromLatLonInKm(myProfile.latitude, myProfile.longitude, p.latitude, p.longitude);
+                }
+                return { ...p, distance_km: distance };
+            });
             setMatches(formattedMatches || []);
 
         } catch (error) {
@@ -118,6 +148,14 @@ export default function MatchesScreen() {
                         <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>
                             {item.gender}
                         </Text>
+                    )}
+                    {typeof item.distance_km === 'number' && (
+                        <>
+                            <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}> • </Text>
+                            <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>
+                                {item.distance_km.toFixed(1)} km
+                            </Text>
+                        </>
                     )}
                 </View>
                 <Text style={styles.lastMessage} numberOfLines={1}>

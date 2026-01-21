@@ -52,8 +52,8 @@ export default function OnboardingStep2() {
     // Let's do imports first.
 
     const pickImage = async () => {
-        if (photos.length >= 3) {
-            Alert.alert('Limite atingido', 'Você pode adicionar no máximo 3 fotos.');
+        if (photos.length >= 6) {
+            Alert.alert('Limite atingido', 'Você pode adicionar no máximo 6 fotos.');
             return;
         }
 
@@ -66,9 +66,18 @@ export default function OnboardingStep2() {
             });
 
             if (!result.canceled) {
+                const asset = result.assets[0];
+
+                // Security: Check file size (5MB limit)
+                // Note: fileSize might be undefined on some android versions/sources, so we trust manipulate too.
+                if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+                    Alert.alert('Arquivo muito grande', 'A imagem deve ter no máximo 5MB.');
+                    return;
+                }
+
                 // Resize and compress
                 const manipResult = await ImageManipulator.manipulateAsync(
-                    result.assets[0].uri,
+                    asset.uri,
                     [{ resize: { width: 1080 } }],
                     { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
                 );
@@ -154,7 +163,7 @@ export default function OnboardingStep2() {
                 <View style={styles.header}>
                     <Text style={styles.stepIndicator}>Passo 2 de 5</Text>
                     <Text style={styles.title}>Suas Melhores Fotos</Text>
-                    <Text style={styles.subtitle}>Adicione até 3 fotos para o seu perfil.</Text>
+                    <Text style={styles.subtitle}>Adicione até 6 fotos para o seu perfil.</Text>
                 </View>
 
                 <View style={styles.photosContainer}>
@@ -167,7 +176,7 @@ export default function OnboardingStep2() {
                         </View>
                     ))}
 
-                    {photos.length < 3 && (
+                    {photos.length < 6 && (
                         <TouchableOpacity style={styles.addButton} onPress={pickImage} disabled={loading}>
                             {loading ? (
                                 <ActivityIndicator color={theme.colors.textSecondary} />
