@@ -4,6 +4,7 @@ import { Lobster_400Regular } from '@expo-google-fonts/lobster';
 import { PermanentMarker_400Regular } from '@expo-google-fonts/permanent-marker';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
+import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -27,6 +28,23 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    // Debug Deep Linking
+    const checkUrl = async () => {
+      const initialUrl = await Linking.getInitialURL();
+      console.log('DEEP LINK INITIAL URL:', initialUrl);
+    };
+    checkUrl();
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      console.log('DEEP LINK EVENT URL:', event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (error) throw error;
   }, [error]);
 
@@ -48,7 +66,10 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="callback" options={{ headerShown: false }} />
+            <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+            <Stack.Screen name="profile" options={{ headerShown: false }} />
+            <Stack.Screen name="chat" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
