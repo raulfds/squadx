@@ -64,16 +64,28 @@ export default function ProfileModal({
                         keyExtractor={() => "dummy"}
                         ListHeaderComponent={
                             <View>
-                                {/* Photos Carousel */}
-                                <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carousel}>
-                                    {profile.photos?.length > 0 ? (
-                                        profile.photos.map((photo: string, index: number) => (
-                                            <Image key={index} source={{ uri: photo }} style={styles.carouselImage} contentFit="cover" />
-                                        ))
-                                    ) : (
-                                        <Image source={{ uri: profile.avatar_url || 'https://via.placeholder.com/300' }} style={styles.carouselImage} contentFit="cover" />
+                                <View style={{ position: 'relative' }}>
+                                    {/* Photos Carousel */}
+                                    <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carousel}>
+                                        {profile.photos?.length > 0 ? (
+                                            profile.photos.map((photo: string, index: number) => (
+                                                <Image key={index} source={{ uri: photo }} style={styles.carouselImage} contentFit="cover" />
+                                            ))
+                                        ) : (
+                                            <Image source={{ uri: profile.avatar_url || 'https://via.placeholder.com/300' }} style={styles.carouselImage} contentFit="cover" />
+                                        )}
+                                    </ScrollView>
+
+                                    {/* Rating Badge on Photo - Top Right */}
+                                    {reputation && (
+                                        <View style={styles.photoRatingBadge}>
+                                            <Ionicons name="star" size={12} color="#000" />
+                                            <Text style={styles.photoRatingText}>
+                                                {((reputation.avg_respect + reputation.avg_communication + reputation.avg_humor + reputation.avg_collaboration) / 4).toFixed(1)}
+                                            </Text>
+                                        </View>
                                     )}
-                                </ScrollView>
+                                </View>
 
                                 {/* Info Section */}
                                 <View style={styles.infoSection}>
@@ -133,16 +145,21 @@ export default function ProfileModal({
                                         <View style={styles.scheduleGrid}>
                                             <View style={styles.scheduleRow}>
                                                 <View style={[styles.scheduleCell, { flex: 1.5 }]} />
-                                                {PERIODS.map(p => <View key={p} style={styles.scheduleCell}><Text style={styles.scheduleHeader}>{p[0]}</Text></View>)}
+                                                {PERIODS.map(p => <View key={p} style={styles.scheduleCell}><Text style={styles.scheduleHeader}>{p}</Text></View>)}
                                             </View>
                                             {DAYS.map(day => (
                                                 <View key={day} style={styles.scheduleRow}>
                                                     <View style={[styles.scheduleCell, { flex: 1.5, alignItems: 'flex-start' }]}><Text style={styles.dayLabel}>{day.slice(0, 3)}</Text></View>
-                                                    {PERIODS.map(period => (
-                                                        <View key={period} style={styles.scheduleCell}>
-                                                            <View style={[styles.dot, profile.availability?.[day]?.includes(period) && styles.dotActive]} />
-                                                        </View>
-                                                    ))}
+                                                    {PERIODS.map(period => {
+                                                        const isAvailable = profile.availability?.[day]?.includes(period);
+                                                        return (
+                                                            <View key={period} style={styles.scheduleCell}>
+                                                                <View style={[styles.periodButton, isAvailable && styles.periodButtonSelected]}>
+                                                                    {isAvailable && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                                                                </View>
+                                                            </View>
+                                                        );
+                                                    })}
                                                 </View>
                                             ))}
                                         </View>
@@ -343,14 +360,19 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 11,
     },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: theme.colors.border,
+    periodButton: {
+        width: '80%',
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#FFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.colors.border,
     },
-    dotActive: {
+    periodButtonSelected: {
         backgroundColor: theme.colors.primary,
+        borderColor: theme.colors.primary,
     },
     idsContainer: {
         gap: theme.spacing.md,
@@ -391,5 +413,23 @@ const styles = StyleSheet.create({
         color: '#000',
         fontWeight: 'bold',
         fontSize: 16,
-    }
+    },
+    photoRatingBadge: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.secondary,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 12,
+        gap: 4,
+        zIndex: 10,
+    },
+    photoRatingText: {
+        fontWeight: 'bold',
+        color: '#000',
+        fontSize: 14,
+    },
 });

@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,6 +20,7 @@ const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
 
 export default function ExploreScreen() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
@@ -473,13 +475,21 @@ export default function ExploreScreen() {
         )}
 
         <Modal
-          animationType="slide"
+          animationType="fade"
           transparent={true}
           visible={matchModalVisible}
           onRequestClose={() => setMatchModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setMatchModalVisible(false)}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              style={styles.modalContent}
+              onPress={(e) => e.stopPropagation()} // Prevent close when clicking content
+            >
               <Text style={styles.modalTitle}>DEU MATCH!</Text>
               <Text style={styles.modalSubtitle}>Você e {matchedProfile?.username} se curtiram.</Text>
 
@@ -488,24 +498,48 @@ export default function ExploreScreen() {
                   source={{ uri: (myProfile?.photos && myProfile.photos.length > 0) ? myProfile.photos[0] : (myProfile?.avatar_url || 'https://via.placeholder.com/100') }}
                   style={[styles.modalAvatar, { borderColor: theme.colors.primary }]}
                 />
-                <Ionicons name="game-controller" size={24} color="#ff005c" style={{ marginHorizontal: 16 }} />
+                <View style={styles.matchIconResult}>
+                  <Ionicons name="game-controller" size={30} color="#FFF" />
+                </View>
                 <Image
                   source={{ uri: (matchedProfile?.photos && matchedProfile.photos.length > 0) ? matchedProfile.photos[0] : (matchedProfile?.avatar_url || 'https://via.placeholder.com/100') }}
-                  style={styles.modalAvatar}
+                  style={[styles.modalAvatar, { borderColor: '#04d361' }]}
                 />
               </View>
 
+              <Text style={styles.matchRatingHint}>
+                💡 Você poderá avaliar a experiência com {matchedProfile?.username} após jogarem juntos!
+              </Text>
+
               {matchedProfile?.distance_km !== undefined && (
-                <Text style={{ color: theme.colors.textSecondary, marginTop: 16 }}>
+                <Text style={{ color: theme.colors.textSecondary, marginBottom: 24 }}>
                   Vocês estão a {matchedProfile.distance_km.toFixed(1)} km de distância!
                 </Text>
               )}
-            </View>
 
-            <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
-              <Text style={styles.closeText}>Continuar explorando</Text>
+              <View style={{ width: '100%', gap: 12 }}>
+                <TouchableOpacity
+                  style={styles.modalPrimaryButton}
+                  onPress={() => {
+                    setMatchModalVisible(false);
+                    // Navigate to matches tab
+                    router.push('/(tabs)/matches');
+                  }}
+                >
+                  <Ionicons name="chatbubbles-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.modalPrimaryButtonText}>Ver Match</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  onPress={() => setMatchModalVisible(false)}
+                >
+                  <Text style={styles.modalSecondaryButtonText}>Continuar explorando</Text>
+                </TouchableOpacity>
+              </View>
+
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </Modal>
 
         <FilterModal
@@ -799,35 +833,93 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: theme.colors.surface,
     borderRadius: 24,
-    padding: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: theme.colors.secondary,
+    borderColor: theme.colors.border,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.37,
+    shadowRadius: 7.49,
+    elevation: 12,
   },
   modalTitle: {
     fontSize: 32,
     fontWeight: '900',
-    color: theme.colors.secondary,
+    color: theme.colors.primary,
     marginBottom: theme.spacing.xs,
     fontStyle: 'italic',
+    textShadowColor: 'rgba(255, 0, 92, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10
   },
   modalSubtitle: {
     color: theme.colors.text,
     fontSize: 16,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
     textAlign: 'center',
   },
   matchAvatars: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
+    justifyContent: 'center'
   },
   modalAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+  },
+  matchIconResult: {
+    marginHorizontal: -15, // Overlap slightly
+    zIndex: 10,
+    borderRadius: 25,
+    padding: 4,
     borderWidth: 2,
-    borderColor: theme.colors.secondary,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary
+  },
+  matchRatingHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 20,
+    fontStyle: 'italic',
+    backgroundColor: theme.colors.surface,
+    padding: 8,
+    borderRadius: 8
+  },
+  modalPrimaryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%'
+  },
+  modalPrimaryButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16
+  },
+  modalSecondaryButton: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: theme.colors.border
+  },
+  modalSecondaryButtonText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '600'
   },
   chatButton: {
     backgroundColor: theme.colors.secondary,

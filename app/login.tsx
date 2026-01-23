@@ -3,7 +3,7 @@ import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SocialButton } from '../src/components/SocialButton';
 import { supabase } from '../src/lib/supabase';
@@ -13,50 +13,6 @@ WebBrowser.maybeCompleteAuthSession(); // Required for web browser redirect
 
 export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isSignUp, setIsSignUp] = useState(false);
-
-    const handleEmailAuth = async () => {
-        setLoading(true);
-        try {
-            if (isSignUp) {
-                const { error } = await supabase.auth.signUp({
-                    email,
-                    password,
-                });
-                if (error) throw error;
-                Alert.alert('Verifique seu e-mail', 'Enviamos um link de confirmação para o seu e-mail.');
-            } else {
-                const { error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
-
-                if (error) {
-                    if (error.message.includes('Invalid login credentials') || error.message.includes('User not found')) {
-                        Alert.alert(
-                            'Conta não encontrada',
-                            'Este e-mail ainda não possui cadastro. Deseja criar uma conta agora?',
-                            [
-                                { text: 'Cancelar', style: 'cancel' },
-                                {
-                                    text: 'Criar Conta',
-                                    onPress: () => setIsSignUp(true)
-                                }
-                            ]
-                        );
-                        return;
-                    }
-                    throw error;
-                }
-            }
-        } catch (error: any) {
-            Alert.alert('Erro', error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleLogin = async (provider: 'google' | 'discord' | 'twitch') => {
         setLoading(true);
@@ -64,7 +20,7 @@ export default function LoginScreen() {
             // Create a redirect URL that matches the scheme configured in app.json and Supabase
             const redirectUrl = makeRedirectUri({
                 scheme: 'squadx',
-                path: 'callback'
+                path: 'auth/callback'
             });
 
             console.log('Redirecting to:', redirectUrl);
@@ -94,15 +50,10 @@ export default function LoginScreen() {
                         const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
                         if (sessionError) throw sessionError;
                         // Determine where to go based on user state (handled by auth listener usually, or manual check)
-                        // For now, allow the AuthContext or root layout to handle the change, or force a check:
                         const { data: { user } } = await supabase.auth.getUser();
                         if (user) {
                             // Check if profile exists to decide dest? Usually root layout handles this.
                         }
-                    } else {
-                        // Sometimes data comes in hash instead of query params depending on provider settings
-                        // But QueryParams.getQueryParams usually handles both if configured right.
-                        // If failed, we might need manual parsing, but standard implicit flow uses hash.
                     }
                 }
             }
@@ -116,74 +67,15 @@ export default function LoginScreen() {
     };
 
     return (
-
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <View style={styles.content}>
                 <View style={styles.logoContainer}>
                     <Image
-                        source={require('../assets/images/squadx-logo.png')}
+                        source={require('../assets/images/squadx-mascot.png')}
                         style={styles.logo}
                         contentFit="contain"
                     />
-                </View>
-
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tab, !isSignUp && styles.activeTab]}
-                        onPress={() => setIsSignUp(false)}
-                    >
-                        <Text style={[styles.tabText, !isSignUp && styles.activeTabText]}>Entrar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tab, isSignUp && styles.activeTab]}
-                        onPress={() => setIsSignUp(true)}
-                    >
-                        <Text style={[styles.tabText, isSignUp && styles.activeTabText]}>Cadastrar</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.formContainer}>
-                    <Text style={styles.formTitle}>
-                        {isSignUp ? 'Criar conta' : 'Bem-vindo de volta!'}
-                    </Text>
-
-                    <TextInput
-                        style={styles.input}
-                        placeholder="E-mail"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Senha"
-                        placeholderTextColor={theme.colors.textSecondary}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
-
-                    <TouchableOpacity
-                        style={styles.authButton}
-                        onPress={handleEmailAuth}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#FFF" />
-                        ) : (
-                            <Text style={styles.authButtonText}>
-                                {isSignUp ? 'Continuar' : 'Entrar'}
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.dividerContainer}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>OU</Text>
-                    <View style={styles.dividerLine} />
+                    <Text style={styles.title}>Squadx</Text>
                 </View>
 
                 <View style={styles.buttonsContainer}>
@@ -205,92 +97,31 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         padding: theme.spacing.lg,
+        alignItems: 'center',
+        gap: 95, // Reduced gap to bring Buttons closer to Brand
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: theme.spacing.md,
+        gap: 8, // Removed gap
     },
     logo: {
-        width: 150,
-        height: 150,
-        marginBottom: 0,
+        width: 380,
+        height: 380,
+    },
+    title: {
+        fontFamily: 'PermanentMarker_400Regular',
+        fontSize: 72,
+        color: theme.colors.primary,
+        letterSpacing: 2,
+        textShadowColor: 'rgba(255, 0, 84, 0.6)',
+        textShadowOffset: { width: 0, height: 4 },
+        textShadowRadius: 12,
+        marginTop: -140, // Pull text up closer to the image
+        zIndex: 1, // Ensure text is on top if they overlap slightly
     },
     buttonsContainer: {
-        width: '100%',
-    },
-    tabContainer: {
-        flexDirection: 'row',
-        marginBottom: theme.spacing.md,
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: 4,
-    },
-    tab: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderRadius: 10,
-    },
-    activeTab: {
-        backgroundColor: theme.colors.primary,
-    },
-    tabText: {
-        color: theme.colors.textSecondary,
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    activeTabText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-    },
-    formContainer: {
-        width: '100%',
-        marginBottom: theme.spacing.md,
-    },
-    formTitle: {
-        color: theme.colors.text,
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: theme.spacing.sm,
-        textAlign: 'center',
-    },
-    input: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: 12,
-        padding: theme.spacing.sm,
-        color: theme.colors.text,
-        marginBottom: theme.spacing.sm,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        height: 48,
-    },
-    authButton: {
-        backgroundColor: theme.colors.primary,
-        padding: theme.spacing.sm,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 4,
-        height: 48,
-        justifyContent: 'center',
-    },
-    authButtonText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    dividerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: theme.spacing.md,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: theme.colors.border,
-    },
-    dividerText: {
-        color: theme.colors.textSecondary,
+        width: '90%',
+        gap: 4,
         paddingHorizontal: theme.spacing.md,
-        fontSize: 12,
     },
 });

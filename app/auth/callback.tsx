@@ -1,34 +1,47 @@
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { supabase } from '../../src/lib/supabase';
 
 export default function AuthCallback() {
     const router = useRouter();
 
     useEffect(() => {
-        // This route is hit when the auth provider redirects back to the app.
-        // The WebBrowser.openAuthSessionAsync in login.tsx should handle the session logic.
-        // We just need to ensure this route exists so Expo Router doesn't show a 404,
-        // and potentially redirect the user if they got stuck here.
+        const handleAuth = async () => {
+            try {
+                const url = await Linking.getInitialURL();
+                if (url) {
+                    const { params, errorCode } = QueryParams.getQueryParams(url);
 
-        // In a typical flow, openAuthSessionAsync resolves and the user stays on the Login screen logic,
-        // which then redirects them. But if the app was closed or deep link handling took over completely,
-        // we might land here.
+                    if (errorCode) throw new Error(errorCode);
 
-        // For now, let's just attempt to go back or to root, assuming auth state listener will restart flow.
-        // Or simply showing a "Verifying..." state is fine while the listener in _layout or login handles it.
+                    const { access_token, refresh_token } = params;
 
-        const timeout = setTimeout(() => {
-            router.replace('/');
-        }, 1000);
+                    if (access_token && refresh_token) {
+                        const { error } = await supabase.auth.setSession({
+                            access_token,
+                            refresh_token,
+                        });
+                        if (error) throw error;
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling auth callback:', error);
+            } finally {
+                // Always redirect to home, the auth listener in layout will handle protection
+                router.replace('/');
+            }
+        };
 
-        return () => clearTimeout(timeout);
+        handleAuth();
     }, []);
 
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
             <ActivityIndicator size="large" color="#ff005c" />
-            <Text style={{ color: '#fff', marginTop: 20 }}>Autenticando...</Text>
+            <Text style={{ color: '#fff', marginTop: 20 }}>Verificando login...</Text>
         </View>
     );
 }
