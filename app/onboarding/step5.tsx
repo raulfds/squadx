@@ -44,7 +44,7 @@ export default function OnboardingStep5() {
 
         // Final step: submit profile
         try {
-            await submitProfile();
+            await submitProfile({ availability });
             if (returnTo) {
                 router.replace(returnTo);
             } else {

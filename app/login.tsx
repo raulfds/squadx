@@ -61,46 +61,55 @@ export default function LoginScreen() {
     const handleLogin = async (provider: 'google' | 'discord' | 'twitch') => {
         setLoading(true);
         try {
+            // Create a redirect URL that matches the scheme configured in app.json and Supabase
             const redirectUrl = makeRedirectUri({
                 scheme: 'squadx',
-                path: 'auth/callback'
+                path: 'callback'
             });
+
+            console.log('Redirecting to:', redirectUrl);
 
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider,
                 options: {
                     redirectTo: redirectUrl,
-                    skipBrowserRedirect: true, // We want Supabase to return the URL so we can open it manually
+                    skipBrowserRedirect: true,
                 },
             });
 
             if (error) throw error;
 
-            // Note: In a real Expo app, we might need to handle the URL manually if not using skipBrowserRedirect: true with openAuthSessionAsync
-            // But Supabase's signInWithOAuth usually handles opening the browser if we don't pass skipBrowserRedirect. 
-            // Actually, with React Native, it returns a URL we should open.
-
-            if (data.url) {
-                // We can use expo-auth-session or just WebBrowser
-                // For simplicity, let's assume Supabase SDK + Expo logic
-                // But often we need to open the URL manually:
+            if (data?.url) {
+                // Open the authentication session
                 const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
                 if (result.type === 'success' && result.url) {
-                    // Parse session from URL fragment
+                    // Extract session parameters from the return URL
                     const { params, errorCode } = QueryParams.getQueryParams(result.url);
                     if (errorCode) throw new Error(errorCode);
 
-                    // Create session (access_token, refresh_token)
                     const { access_token, refresh_token } = params;
+
                     if (access_token && refresh_token) {
-                        await supabase.auth.setSession({ access_token, refresh_token });
+                        const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+                        if (sessionError) throw sessionError;
+                        // Determine where to go based on user state (handled by auth listener usually, or manual check)
+                        // For now, allow the AuthContext or root layout to handle the change, or force a check:
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (user) {
+                            // Check if profile exists to decide dest? Usually root layout handles this.
+                        }
+                    } else {
+                        // Sometimes data comes in hash instead of query params depending on provider settings
+                        // But QueryParams.getQueryParams usually handles both if configured right.
+                        // If failed, we might need manual parsing, but standard implicit flow uses hash.
                     }
                 }
             }
 
         } catch (error: any) {
-            Alert.alert('Erro no Login', error.message);
+            console.error('Login Error:', error);
+            Alert.alert('Erro no Login', error.message || 'Falha ao conectar com o provedor.');
         } finally {
             setLoading(false);
         }

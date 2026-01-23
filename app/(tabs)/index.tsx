@@ -97,6 +97,9 @@ export default function ExploreScreen() {
 
       if (error) throw error;
 
+      console.log('Explore RPC Result (First Item):', data && data.length > 0 ? JSON.stringify(data[0], null, 2) : 'No Data');
+
+
       // 2. Fallback logic
       if (!data || data.length === 0) {
         // Check if we have active filters (assuming 1 is default/min)
@@ -328,9 +331,15 @@ export default function ExploreScreen() {
                       <View style={styles.locationRow}>
                         <Ionicons name="location-sharp" size={14} color={theme.colors.textSecondary} />
                         <Text style={styles.cardLocation}>{profiles[currentProfileIndex].city} - {profiles[currentProfileIndex].state}</Text>
-                        {typeof profiles[currentProfileIndex].distance_km === 'number' && (
-                          <Text style={styles.cardLocation}> • {profiles[currentProfileIndex].distance_km.toFixed(1)} km</Text>
-                        )}
+                      </View>
+                    )}
+
+                    {typeof profiles[currentProfileIndex].distance_km === 'number' && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, marginTop: -12 }}>
+                        <Ionicons name="navigate-circle-outline" size={16} color={theme.colors.primary} />
+                        <Text style={{ color: theme.colors.textSecondary, marginLeft: 4 }}>
+                          {profiles[currentProfileIndex].distance_km.toFixed(1)} km de você
+                        </Text>
                       </View>
                     )}
 
@@ -486,10 +495,16 @@ export default function ExploreScreen() {
                 />
               </View>
 
-              <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
-                <Text style={styles.closeText}>Continuar explorando</Text>
-              </TouchableOpacity>
+              {matchedProfile?.distance_km !== undefined && (
+                <Text style={{ color: theme.colors.textSecondary, marginTop: 16 }}>
+                  Vocês estão a {matchedProfile.distance_km.toFixed(1)} km de distância!
+                </Text>
+              )}
             </View>
+
+            <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
+              <Text style={styles.closeText}>Continuar explorando</Text>
+            </TouchableOpacity>
           </View>
         </Modal>
 
@@ -499,14 +514,8 @@ export default function ExploreScreen() {
           filters={filters}
           onApply={setFilters}
         />
-        <FilterModal
-          visible={filterModalVisible}
-          onClose={() => setFilterModalVisible(false)}
-          filters={filters}
-          onApply={setFilters}
-        />
       </SafeAreaView>
-    </GestureHandlerRootView>
+    </GestureHandlerRootView >
   );
 }
 

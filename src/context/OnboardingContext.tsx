@@ -27,14 +27,14 @@ export interface OnboardingData {
 type OnboardingContextType = {
     data: OnboardingData;
     updateData: (newData: Partial<OnboardingData>) => void;
-    submitProfile: () => Promise<void>;
+    submitProfile: (overrideData?: Partial<OnboardingData>) => Promise<void>;
     loading: boolean;
 };
 
 const OnboardingContext = createContext<OnboardingContextType>({
     data: {},
     updateData: () => { },
-    submitProfile: async () => { },
+    submitProfile: async (overrideData?: Partial<OnboardingData>) => { },
     loading: false,
 });
 
@@ -48,34 +48,43 @@ export const OnboardingProvider = ({ children }: { children: React.ReactNode }) 
         setData((prev) => ({ ...prev, ...newData }));
     };
 
-    const submitProfile = async () => {
+    const submitProfile = async (overrideData?: Partial<OnboardingData>) => {
         setLoading(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('No session');
+
+            const finalData = { ...data, ...overrideData };
+
+            console.log('Final Data being sent to Supabase:', JSON.stringify({
+                latitude: finalData.latitude,
+                longitude: finalData.longitude,
+                username: finalData.username,
+                cep: finalData.cep
+            }, null, 2));
 
             // 1. Upsert Profile Data
             const { error: profileError } = await supabase
                 .from('profiles')
                 .upsert({
                     id: session.user.id,
-                    username: data.username,
-                    full_name: data.full_name,
-                    birth_date: data.birth_date,
-                    gender: data.gender,
-                    bio: data.bio,
-                    city: data.city,
-                    state: data.state,
-                    cep: data.cep,
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    photos: data.photos,
-                    discord_handle: data.discord_handle,
-                    psn_handle: data.psn_handle,
-                    xbox_handle: data.xbox_handle,
-                    steam_handle: data.steam_handle,
-                    game_genres: data.game_genres,
-                    availability: data.availability,
+                    username: finalData.username,
+                    full_name: finalData.full_name,
+                    birth_date: finalData.birth_date,
+                    gender: finalData.gender,
+                    bio: finalData.bio,
+                    city: finalData.city,
+                    state: finalData.state,
+                    cep: finalData.cep,
+                    latitude: finalData.latitude,
+                    longitude: finalData.longitude,
+                    photos: finalData.photos,
+                    discord_handle: finalData.discord_handle,
+                    psn_handle: finalData.psn_handle,
+                    xbox_handle: finalData.xbox_handle,
+                    steam_handle: finalData.steam_handle,
+                    game_genres: finalData.game_genres,
+                    availability: finalData.availability,
                     updated_at: new Date().toISOString(),
                 });
 

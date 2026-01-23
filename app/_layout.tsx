@@ -11,6 +11,7 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+// Removed manual linking config to rely on Expo Router's auto-discovery
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -22,6 +23,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
+            <Stack.Screen name="callback" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>

@@ -36,7 +36,7 @@ export default function FilterModal({ visible, onClose, filters, onApply }: Filt
             sameLocation: false,
             samePlatform: false,
             commonGames: false,
-            maxDistanceKm: 100 // Default or undefined
+            maxDistanceKm: 5000 // Default to max
         };
         setLocalFilters(resetFilters);
         onApply(resetFilters);
@@ -128,8 +128,9 @@ export default function FilterModal({ visible, onClose, filters, onApply }: Filt
                         {renderSwitch("Mesmas Plataformas", localFilters.samePlatform, (v) => updateFilter('samePlatform', v))}
                         {renderSwitch("Jogos em Comum", localFilters.commonGames, (v) => updateFilter('commonGames', v))}
 
+
                         <View style={{ marginTop: 16 }}>
-                            {renderSlider("Distância Máxima (km)", localFilters.maxDistanceKm || 100, (v) => updateFilter('maxDistanceKm', v), theme.colors.primary, 1, 100, true)}
+                            {renderSlider("Distância Máxima (km)", localFilters.maxDistanceKm || 5000, (v) => updateFilter('maxDistanceKm', v), theme.colors.primary, 1, 5000, true)}
                         </View>
 
                         <View style={styles.divider} />

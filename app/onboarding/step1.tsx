@@ -69,13 +69,21 @@ export default function OnboardingStep1() {
             // Using BrasilAPI V2 for Coordinates
             const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
             const data = await response.json();
+            console.log('BrasilAPI Response for', cleanCep, ':', JSON.stringify(data));
 
             if (!data.errors) {
                 setCity(data.city);
                 setState(data.state);
-                if (data.location && data.location.coordinates) {
+
+                // Check specifically for valid latitude/longitude
+                if (data.location?.coordinates?.latitude && data.location?.coordinates?.longitude) {
+                    console.log('Coordinates found via BrasilAPI:', data.location.coordinates);
                     setLatitude(parseFloat(data.location.coordinates.latitude));
                     setLongitude(parseFloat(data.location.coordinates.longitude));
+                } else {
+                    console.log('Coordinates MISSING in BrasilAPI, trying Nominatim fallback...');
+                    // Fallback: Use OpenStreetMap Nominatim with address details
+                    await fetchCoordinatesFromAddress(data.street, data.city, data.state);
                 }
             } else {
                 alert('CEP não encontrado.');
@@ -84,6 +92,33 @@ export default function OnboardingStep1() {
             console.log('Erro CEP:', error);
         } finally {
             setLoadingCep(false);
+        }
+    };
+
+    const fetchCoordinatesFromAddress = async (street: string, city: string, state: string) => {
+        try {
+            // Nominatim API requires User-Agent
+            const query = `${street}, ${city}, ${state}, Brazil`;
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+
+            console.log('Fetching Nominatim:', url);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'SquadxApp/1.0'
+                }
+            });
+            const results = await response.json();
+
+            if (results && results.length > 0) {
+                const location = results[0];
+                console.log('Nominatim found:', location.lat, location.lon);
+                setLatitude(parseFloat(location.lat));
+                setLongitude(parseFloat(location.lon));
+            } else {
+                console.log('Nominatim returned no results.');
+            }
+        } catch (err) {
+            console.warn('Nominatim Fallback Error:', err);
         }
     };
 
@@ -112,10 +147,20 @@ export default function OnboardingStep1() {
                     setGender(profile.gender || '');
                     setCity(profile.city || '');
                     setState(profile.state || '');
-                    setCep(profile.cep || '');
+                    const loadedCep = profile.cep || '';
+                    setCep(loadedCep);
 
                     if (profile.birth_date) {
                         setDateDisplay(profile.birth_date.split('-').reverse().join('/'));
+                    }
+
+                    // Auto-fetch coordinates if they are missing but CEP exists (Legacy Data Fix)
+                    if (loadedCep && (!profile.latitude || !profile.longitude)) {
+                        console.log('Missing coordinates for existing CEP, fetching...', loadedCep);
+                        fetchAddress(loadedCep.replace(/\D/g, ''));
+                    } else {
+                        setLatitude(profile.latitude);
+                        setLongitude(profile.longitude);
                     }
 
                     // Populate Context for next steps
@@ -135,12 +180,50 @@ export default function OnboardingStep1() {
         loadUserData();
     }, []);
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!username || !birthDate || birthDate.length !== 10) {
             alert('Por favor, preencha o nome de usuário e uma data de nascimento válida.');
             return;
         }
-        updateData({ username, full_name: fullName, bio, birth_date: birthDate, gender, city, state, latitude, longitude, cep });
+
+        const updates = {
+            username,
+            full_name: fullName,
+            bio,
+            birth_date: birthDate,
+            gender,
+            city,
+            state,
+            latitude,
+            longitude,
+            cep
+        };
+
+        updateData(updates);
+
+        if (returnTo) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    console.log('UPDATING PROFILE DIRECTLY:', JSON.stringify(updates, null, 2));
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({
+                            ...updates,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', session.user.id);
+
+                    if (error) throw error;
+                    router.replace(returnTo);
+                }
+            } catch (error) {
+                console.error("Error saving profile update:", error);
+                alert("Erro ao salvar alterações.");
+            }
+            return;
+        }
+
         router.push('/onboarding/step2');
     };
 

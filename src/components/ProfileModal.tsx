@@ -52,6 +52,9 @@ export default function ProfileModal({
 
                     <Text style={styles.modalSubtitle}>
                         {profile.city} - {profile.state}
+                        {typeof profile.distance_km === 'number' && (
+                            ` • ${profile.distance_km.toFixed(1)} km`
+                        )}
                     </Text>
 
                     {/* Full Profile Content */}

@@ -165,15 +165,22 @@ export default function MatchesScreen() {
                             {item.gender}
                         </Text>
                     )}
-                    {typeof item.distance_km === 'number' && (
-                        <>
-                            <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}> • </Text>
-                            <Text style={{ color: theme.colors.textSecondary, fontSize: 13 }}>
-                                {item.distance_km.toFixed(1)} km
-                            </Text>
-                        </>
-                    )}
                 </View>
+
+                {/* Location & Distance */}
+                {(item.city && item.state) && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                        <Ionicons name="location-sharp" size={12} color={theme.colors.textSecondary} />
+                        <Text style={{ color: theme.colors.textSecondary, fontSize: 13, marginLeft: 2 }}>
+                            {item.city} - {item.state}
+                        </Text>
+                    </View>
+                )}
+                {typeof item.distance_km === 'number' && (
+                    <Text style={{ color: theme.colors.textSecondary, fontSize: 13, marginTop: 2 }}>
+                        📍 {item.distance_km.toFixed(1)} km de você
+                    </Text>
+                )}
                 <Text style={styles.lastMessage} numberOfLines={1}>
                     {item.discord_handle || 'Toque para ver IDs...'}
                 </Text>

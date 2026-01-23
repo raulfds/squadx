@@ -266,7 +266,7 @@ export default function ProfileScreen() {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/onboarding/step1')}>
+                        <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/onboarding/step1?returnTo=/profile')}>
                             <Ionicons name="settings-outline" size={20} color={theme.colors.primary} />
                         </TouchableOpacity>
                     </View>
@@ -289,7 +289,7 @@ export default function ProfileScreen() {
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Localização</Text>
-                            <TouchableOpacity onPress={() => router.push('/onboarding/step1')}>
+                            <TouchableOpacity onPress={() => router.push('/onboarding/step1?returnTo=/profile')}>
                                 <Ionicons name="pencil" size={20} color={theme.colors.primary} />
                             </TouchableOpacity>
                         </View>
